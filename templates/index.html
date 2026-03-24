@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>レシピ帳</title>
+    <style>
+        body { font-family: sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; background: #fafafa; }
+        h1 { color: #e67e22; margin-bottom: 20px; }
+
+        /* 検索・絞り込み */
+        .search-box { display: flex; gap: 8px; margin-bottom: 12px; }
+        .search-box input { flex: 1; padding: 8px 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 6px; }
+        .search-box button { padding: 8px 16px; background: #e67e22; color: white; border: none; border-radius: 6px; cursor: pointer; }
+        .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
+        .filter-bar a { font-size: 13px; padding: 4px 12px; border-radius: 20px; text-decoration: none; background: #f0f0f0; color: #555; border: 1px solid #ddd; }
+        .filter-bar a.active { background: #e67e22; color: white; border-color: #e67e22; }
+        .filter-bar span { font-size: 13px; color: #aaa; }
+
+        /* カテゴリー管理 */
+        .cat-manage { background: white; border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .cat-manage-header { padding: 14px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+        .cat-manage-header:hover { background: #fafafa; border-radius: 10px; }
+        .cat-manage-header h3 { margin: 0; font-size: 15px; color: #555; }
+        .cat-manage-body { display: none; padding: 0 20px 20px; border-top: 1px solid #f0f0f0; }
+        .cat-manage-body.open { display: block; }
+        .cat-list { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
+        .cat-item { display: flex; align-items: center; gap: 4px; background: #fff3e0; border-radius: 6px; padding: 4px 10px; }
+        .cat-item span { font-size: 14px; color: #e65100; }
+        .cat-delete-btn { background: none; border: none; color: #bbb; cursor: pointer; font-size: 14px; padding: 0 2px; line-height: 1; }
+        .cat-delete-btn:hover { color: #e74c3c; }
+        .cat-add-form { display: flex; gap: 8px; margin-top: 4px; }
+        .cat-add-form input { flex: 1; padding: 7px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+        .cat-add-form button { padding: 7px 16px; background: #e67e22; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; white-space: nowrap; }
+        .cat-empty { font-size: 13px; color: #bbb; margin: 14px 0; }
+
+        /* 追加フォーム */
+        .add-form { background: white; border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.1); margin-bottom: 30px; overflow: hidden; }
+        .tab-bar { display: flex; border-bottom: 2px solid #f0f0f0; }
+        .tab-btn { flex: 1; padding: 12px; background: none; border: none; font-size: 14px; color: #999; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+        .tab-btn.active { color: #e67e22; border-bottom-color: #e67e22; font-weight: bold; }
+        .tab-pane { display: none; padding: 24px; }
+        .tab-pane.active { display: block; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .add-form label { font-size: 13px; color: #555; display: block; margin-bottom: 4px; }
+        .add-form input, .add-form textarea { width: 100%; padding: 9px 12px; margin-bottom: 14px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+        .add-form textarea { resize: vertical; min-height: 100px; }
+        .add-form .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .add-form .two-col textarea { min-height: 140px; }
+        .btn-green { background: #27ae60; color: white; border: none; padding: 10px 24px; border-radius: 6px; cursor: pointer; font-size: 15px; }
+        .btn-orange { background: #e67e22; color: white; border: none; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-bottom: 14px; }
+        .loading { display: none; color: #888; font-size: 14px; margin-left: 12px; }
+
+        /* カード */
+        .recipe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+        .recipe-card { background: white; border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.1); overflow: hidden; position: relative; }
+        .recipe-card img { width: 100%; height: 160px; object-fit: cover; display: block; }
+        .recipe-card .no-image { width: 100%; height: 160px; background: #f0ece4; display: flex; align-items: center; justify-content: center; font-size: 40px; }
+        .recipe-card .card-body { padding: 14px; }
+        .recipe-card h3 { margin: 0 0 6px; font-size: 15px; line-height: 1.4; }
+        .recipe-card h3 a { color: #2c3e50; text-decoration: none; }
+        .recipe-card h3 a:hover { color: #e67e22; }
+        .recipe-card .meta { font-size: 12px; color: #aaa; margin-bottom: 8px; }
+        .badges { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+        .badge-cat { font-size: 11px; background: #fff3e0; color: #e65100; border-radius: 4px; padding: 2px 7px; text-decoration: none; }
+        .badge-tag { font-size: 11px; background: #e3f2fd; color: #1565c0; border-radius: 4px; padding: 2px 7px; text-decoration: none; }
+        .badge-cat:hover { background: #e65100; color: white; }
+        .badge-tag:hover { background: #1565c0; color: white; }
+        .delete-btn { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.4); border: none; color: white; border-radius: 50%; width: 26px; height: 26px; cursor: pointer; font-size: 14px; line-height: 26px; text-align: center; }
+        .delete-btn:hover { background: #e74c3c; }
+        .empty { text-align: center; color: #aaa; padding: 60px 20px; }
+        .section-title { font-size: 15px; color: #888; margin-bottom: 14px; }
+
+        /* 選択モード */
+        .select-toggle { background: none; border: 1px solid #ccc; border-radius: 6px; padding: 7px 16px; font-size: 14px; color: #555; cursor: pointer; margin-bottom: 12px; }
+        .select-toggle.active { background: #e67e22; color: white; border-color: #e67e22; }
+        .recipe-card .checkbox-wrap { display: none; position: absolute; top: 8px; left: 8px; z-index: 10; }
+        .recipe-card .checkbox-wrap input { width: 20px; height: 20px; cursor: pointer; accent-color: #e67e22; }
+        body.select-mode .recipe-card .checkbox-wrap { display: block; }
+        body.select-mode .recipe-card { cursor: pointer; }
+        body.select-mode .recipe-card.selected { outline: 3px solid #e67e22; }
+
+        /* 一括操作パネル（インライン表示） */
+        .bulk-panel { display: none; background: #2c3e50; color: white; border-radius: 10px; padding: 16px 20px; margin-bottom: 16px; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .bulk-panel.show { display: flex; }
+        .bulk-panel .count { font-size: 14px; flex: 1; min-width: 80px; }
+        .bulk-panel select { padding: 8px 12px; border-radius: 6px; border: none; font-size: 14px; min-width: 160px; background: white; color: #333; }
+        .bulk-panel button { padding: 8px 18px; border-radius: 6px; border: none; font-size: 14px; cursor: pointer; }
+        .bulk-panel .apply-btn { background: #e67e22; color: white; }
+        .bulk-panel .apply-btn:hover { background: #cf6d17; }
+        .bulk-panel .cancel-btn { background: #ecf0f1; color: #333; }
+    </style>
+</head>
+<body>
+    <h1>🍳 レシピ帳</h1>
+
+    <!-- 検索 -->
+    <form class="search-box" method="get">
+        {% if category %}<input type="hidden" name="cat" value="{{ category }}">{% endif %}
+        <input type="text" name="q" placeholder="レシピ名・材料・タグで検索..." value="{{ keyword }}">
+        <button type="submit">検索</button>
+        {% if keyword or category or tag %}
+        <a href="/" style="padding:8px;color:#888;text-decoration:none;">クリア</a>
+        {% endif %}
+    </form>
+
+    <!-- カテゴリー絞り込み -->
+    {% if categories %}
+    <div class="filter-bar">
+        <span>カテゴリー：</span>
+        <a href="/?q={{ keyword }}" class="{{ 'active' if not category }}">すべて</a>
+        {% for cat in categories %}
+        <a href="/?cat={{ cat }}&q={{ keyword }}" class="{{ 'active' if category == cat }}">{{ cat }}</a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if tag %}
+    <div style="margin-bottom:12px;font-size:14px;color:#555;">
+        タグ「<strong>{{ tag }}</strong>」で絞り込み中
+    </div>
+    {% endif %}
+
+    <!-- カテゴリー管理 -->
+    <div class="cat-manage">
+        <div class="cat-manage-header" onclick="toggleCatManage()">
+            <h3>🗂 カテゴリーを管理する</h3>
+            <span id="cat-arrow">▼</span>
+        </div>
+        <div class="cat-manage-body" id="cat-manage-body">
+            {% if categories %}
+            <div class="cat-list">
+                {% for cat in categories %}
+                <div class="cat-item">
+                    <span>{{ cat }}</span>
+                    <form method="post" action="/categories/delete"
+                          onsubmit="return confirm('「{{ cat }}」を削除しますか？\n※このカテゴリーが設定されたレシピには影響しません。')">
+                        <input type="hidden" name="name" value="{{ cat }}">
+                        <button class="cat-delete-btn" type="submit">✕</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="cat-empty">カテゴリーがありません。下から追加してください。</p>
+            {% endif %}
+            <form class="cat-add-form" method="post" action="/categories/add">
+                <input type="text" name="name" placeholder="新しいカテゴリー名を入力" required>
+                <button type="submit">追加</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- レシピ追加フォーム（タブ切り替え） -->
+    <div class="add-form">
+        <div class="tab-bar">
+            <button class="tab-btn active" onclick="switchTab('url', this)">🔗 URLから登録</button>
+            <button class="tab-btn" onclick="switchTab('manual', this)">✏️ 手入力で登録</button>
+        </div>
+
+        <!-- URLから登録 -->
+        <div class="tab-pane active" id="tab-url">
+            <form method="post" action="/add" onsubmit="showLoading()">
+                <label>レシピのURL（材料・手順を自動取得します）</label>
+                <input type="url" name="url" placeholder="https://cookpad.com/recipe/..." required>
+                <div class="form-row">
+                    <div>
+                        <label>カテゴリー</label>
+                        <input type="text" name="category" placeholder="カテゴリーを選択または入力" list="category-list-url">
+                        <datalist id="category-list-url">
+                            {% for cat in categories %}<option value="{{ cat }}">{% endfor %}
+                        </datalist>
+                    </div>
+                    <div>
+                        <label>タグ（カンマ区切りで複数可）</label>
+                        <input type="text" name="tags" placeholder="時短, 節約, 子供向け">
+                    </div>
+                </div>
+                <label>メモ（任意）</label>
+                <input type="text" name="memo" placeholder="アレンジや感想など">
+                <button class="btn-green" type="submit">追加する</button>
+                <span class="loading" id="loading">取得中...</span>
+            </form>
+        </div>
+
+        <!-- 手入力で登録 -->
+        <div class="tab-pane" id="tab-manual">
+            <form method="post" action="/add-manual" enctype="multipart/form-data">
+                <label>料理名 <span style="color:#e74c3c">*</span></label>
+                <input type="text" name="title" placeholder="例：鶏の唐揚げ" required>
+                <label>参考URL（任意）</label>
+                <input type="url" name="url" placeholder="https://...">
+
+                <label>まとめて入力（材料と手順を貼り付けると自動で分けます）</label>
+                <textarea name="full_text" id="full-text"
+                          placeholder="【材料】&#10;鶏もも肉 300g&#10;醤油 大さじ2&#10;&#10;【作り方】&#10;①鶏肉を一口大に切る&#10;②調味料に漬ける&#10;③揚げる"></textarea>
+                <button class="btn-orange" type="button" onclick="parseRecipeText()">解析する（材料・手順に分ける）</button>
+
+                <div class="two-col">
+                    <div>
+                        <label>材料</label>
+                        <textarea name="ingredients" id="parsed-ingredients" placeholder="鶏もも肉 300g&#10;醤油 大さじ2"></textarea>
+                    </div>
+                    <div>
+                        <label>作り方</label>
+                        <textarea name="steps" id="parsed-steps" placeholder="①鶏肉を切る&#10;②漬ける&#10;③揚げる"></textarea>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div>
+                        <label>カテゴリー</label>
+                        <input type="text" name="category" placeholder="カテゴリーを選択または入力" list="category-list-manual">
+                        <datalist id="category-list-manual">
+                            {% for cat in categories %}<option value="{{ cat }}">{% endfor %}
+                        </datalist>
+                    </div>
+                    <div>
+                        <label>タグ（カンマ区切りで複数可）</label>
+                        <input type="text" name="tags" placeholder="時短, 節約, 子供向け">
+                    </div>
+                </div>
+                <label>メモ（任意）</label>
+                <input type="text" name="memo" placeholder="アレンジや感想など">
+                <label>写真（任意・JPG・PNG・GIF・WebP）</label>
+                <input type="file" name="photo" accept="image/*" style="margin-bottom:16px;">
+                <br>
+                <button class="btn-green" type="submit">保存する</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 選択モード切り替え -->
+    {% if recipes %}
+    <button class="select-toggle" id="select-toggle" onclick="toggleSelectMode()">レシピを選択してカテゴリー一括登録</button>
+
+    <!-- 一括操作パネル（インライン） -->
+    <form id="bulk-form" method="post" action="/bulk-update">
+        <div class="bulk-panel" id="bulk-panel">
+            <div class="count" id="bulk-count">0件選択中</div>
+            <select name="category">
+                <option value="" disabled selected>▼ カテゴリーを選ぶ</option>
+                {% for cat in categories %}
+                <option value="{{ cat }}">{{ cat }}</option>
+                {% endfor %}
+            </select>
+            <div id="hidden-ids"></div>
+            <button type="submit" class="apply-btn"
+                    onclick="return validateBulk()">一括登録する</button>
+            <button type="button" class="cancel-btn" onclick="exitSelectMode()">キャンセル</button>
+        </div>
+    </form>
+    {% endif %}
+
+    <!-- レシピ一覧 -->
+    <div class="section-title">
+        {% if category %}「{{ category }}」の{% endif %}
+        {% if tag %}タグ「{{ tag }}」の{% endif %}
+        レシピ（{{ recipes|length }}件）
+    </div>
+
+    {% if recipes %}
+    <div class="recipe-grid">
+        {% for r in recipes %}
+        <div class="recipe-card" id="card-{{ r[0] }}" onclick="toggleCard(this, {{ r[0] }})">
+            <div class="checkbox-wrap">
+                <input type="checkbox" id="chk-{{ r[0] }}" onclick="event.stopPropagation()">
+            </div>
+            <a href="/recipe/{{ r[0] }}" onclick="if(document.body.classList.contains('select-mode')){event.preventDefault();}">
+                {% if r[5] %}
+                    <img src="{{ r[5] }}" alt="{{ r[1] }}" onerror="this.style.display='none'">
+                {% else %}
+                    <div class="no-image">🍽️</div>
+                {% endif %}
+            </a>
+            <form method="post" action="/delete/{{ r[0] }}" onsubmit="return confirm('削除しますか？')">
+                <button class="delete-btn" type="submit">✕</button>
+            </form>
+            <div class="card-body">
+                <h3><a href="/recipe/{{ r[0] }}">{{ r[1] }}</a></h3>
+                <div class="meta">{{ r[7] }}</div>
+                <div class="badges">
+                    {% if r[8] %}
+                    <a href="/?cat={{ r[8] }}" class="badge-cat">{{ r[8] }}</a>
+                    {% endif %}
+                    {% if r[9] %}
+                        {% for t in r[9].split(',') %}
+                        {% if t.strip() %}
+                        <a href="/?tag={{ t.strip() }}" class="badge-tag">{{ t.strip() }}</a>
+                        {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+        <div class="empty">レシピが見つかりません。</div>
+    {% endif %}
+
+    <script>
+        function showLoading() {
+            document.getElementById("loading").style.display = "inline";
+        }
+
+        function switchTab(name, btn) {
+            document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
+            document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+            document.getElementById("tab-" + name).classList.add("active");
+            btn.classList.add("active");
+        }
+
+        // まとめて入力テキストを材料・手順に分割する
+        function parseRecipeText() {
+            const text = document.getElementById("full-text").value;
+            if (!text.trim()) { alert("テキストを入力してください。"); return; }
+
+            const lines = text.split('\n');
+            const ingredientHeader = /^[【《＜<〔\[]?(?:材料|食材)[】》＞>\]〕]?/;
+            const stepHeader       = /^[【《＜<〔\[]?(?:作り方|つくり方|手順|調理方法)[】》＞>\]〕]?/;
+            const stepLine         = /^([①-⑳]|\d+[.)）、]|[１-９][.)）、]|STEP\s*\d)\s*\S/;
+
+            let ingredients = [], steps = [], section = null;
+
+            for (let raw of lines) {
+                const line = raw.trim();
+                if (!line) continue;
+                if (ingredientHeader.test(line) && line.length < 12) { section = 'ing'; continue; }
+                if (stepHeader.test(line)       && line.length < 12) { section = 'step'; continue; }
+                if (stepLine.test(line) && section !== 'ing') { section = 'step'; steps.push(line); continue; }
+                if (section === 'ing')  ingredients.push(line);
+                else if (section === 'step') steps.push(line);
+            }
+
+            document.getElementById("parsed-ingredients").value = ingredients.join('\n');
+            document.getElementById("parsed-steps").value = steps.join('\n');
+
+            if (!ingredients.length && !steps.length) {
+                alert("材料・手順のヘッダー（【材料】【作り方】など）が見つかりませんでした。\n下の欄に直接入力してください。");
+            }
+        }
+        function toggleCatManage() {
+            const body  = document.getElementById("cat-manage-body");
+            const arrow = document.getElementById("cat-arrow");
+            const open  = body.classList.toggle("open");
+            arrow.textContent = open ? "▲" : "▼";
+        }
+
+        function toggleSelectMode() {
+            const active = document.body.classList.toggle("select-mode");
+            const btn   = document.getElementById("select-toggle");
+            const panel = document.getElementById("bulk-panel");
+            btn.textContent = active ? "選択モードを終了" : "レシピを選択してカテゴリー一括登録";
+            btn.classList.toggle("active", active);
+            if (panel) panel.classList.toggle("show", active);
+            if (!active) clearSelection();
+        }
+
+        function exitSelectMode() {
+            document.body.classList.remove("select-mode");
+            const btn   = document.getElementById("select-toggle");
+            const panel = document.getElementById("bulk-panel");
+            if (btn)   { btn.textContent = "レシピを選択してカテゴリー一括登録"; btn.classList.remove("active"); }
+            if (panel) panel.classList.remove("show");
+            clearSelection();
+        }
+
+        function clearSelection() {
+            document.querySelectorAll(".recipe-card").forEach(c => c.classList.remove("selected"));
+            document.querySelectorAll(".recipe-card input[type=checkbox]").forEach(c => c.checked = false);
+            updateCount();
+        }
+
+        function toggleCard(card, id) {
+            if (!document.body.classList.contains("select-mode")) return;
+            const chk = document.getElementById("chk-" + id);
+            chk.checked = !chk.checked;
+            card.classList.toggle("selected", chk.checked);
+            updateCount();
+        }
+
+        function updateCount() {
+            const checked   = document.querySelectorAll(".recipe-card input[type=checkbox]:checked");
+            const count     = document.getElementById("bulk-count");
+            const hiddenIds = document.getElementById("hidden-ids");
+            if (!count) return;
+            count.textContent = checked.length + "件選択中";
+            hiddenIds.innerHTML = "";
+            checked.forEach(c => {
+                const inp = document.createElement("input");
+                inp.type  = "hidden";
+                inp.name  = "ids";
+                inp.value = c.id.replace("chk-", "");
+                hiddenIds.appendChild(inp);
+            });
+        }
+
+        function validateBulk() {
+            const checked  = document.querySelectorAll(".recipe-card input[type=checkbox]:checked");
+            const sel      = document.querySelector("#bulk-panel select");
+            if (checked.length === 0) { alert("レシピを1件以上選択してください。"); return false; }
+            if (!sel.value)           { alert("カテゴリーを選んでください。"); return false; }
+            return true;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ recipe[1] }} - レシピ帳</title>
+    <style>
+        body { font-family: sans-serif; max-width: 760px; margin: 40px auto; padding: 0 20px; background: #fafafa; }
+        .back-link { color: #e67e22; text-decoration: none; font-size: 14px; display: inline-block; margin-bottom: 20px; }
+        .back-link:hover { text-decoration: underline; }
+        .hero-image { width: 100%; max-height: 360px; object-fit: cover; border-radius: 12px; margin-bottom: 24px; }
+        h1 { font-size: 24px; color: #2c3e50; margin-bottom: 8px; }
+        .source-link { font-size: 13px; color: #3498db; margin-bottom: 16px; display: block; word-break: break-all; }
+        .source-link:hover { text-decoration: underline; }
+        .meta { font-size: 13px; color: #aaa; margin-bottom: 24px; }
+        .section { background: white; border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); padding: 20px 24px; margin-bottom: 20px; }
+        .section h2 { margin: 0 0 16px; font-size: 17px; color: #e67e22; border-bottom: 2px solid #fde9ce; padding-bottom: 8px; }
+        .ingredients-list { list-style: none; padding: 0; margin: 0; }
+        .ingredients-list li { padding: 8px 0; border-bottom: 1px solid #f5f5f5; font-size: 15px; }
+        .ingredients-list li:last-child { border-bottom: none; }
+        .ingredients-list li::before { content: "・"; color: #e67e22; }
+        .steps-list { list-style: none; padding: 0; margin: 0; counter-reset: step-counter; }
+        .steps-list li { padding: 12px 0 12px 52px; border-bottom: 1px solid #f5f5f5; font-size: 15px; line-height: 1.7; position: relative; counter-increment: step-counter; }
+        .steps-list li:last-child { border-bottom: none; }
+        .steps-list li::before { content: counter(step-counter); position: absolute; left: 0; top: 10px; background: #e67e22; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; }
+        .memo-box { background: #fffde7; border-left: 4px solid #f9a825; padding: 12px 16px; border-radius: 4px; font-size: 14px; }
+        .empty-note { color: #bbb; font-size: 14px; }
+        .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+        .badge-cat { font-size: 13px; background: #fff3e0; color: #e65100; border-radius: 4px; padding: 3px 10px; text-decoration: none; }
+        .badge-tag { font-size: 13px; background: #e3f2fd; color: #1565c0; border-radius: 4px; padding: 3px 10px; text-decoration: none; }
+        .badge-cat:hover { background: #e65100; color: white; }
+        .badge-tag:hover { background: #1565c0; color: white; }
+
+        /* 編集セクション */
+        .edit-section { background: white; border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); padding: 20px 24px; margin-bottom: 20px; }
+        .edit-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; margin-bottom: 0; }
+        .edit-header h2 { margin: 0; font-size: 17px; color: #555; }
+        .edit-header:hover h2 { color: #333; }
+        .toggle-arrow { color: #aaa; }
+        .edit-body { display: none; margin-top: 16px; border-top: 2px solid #eee; padding-top: 16px; }
+        .edit-body.open { display: block; }
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .edit-section label { font-size: 13px; color: #555; display: block; margin-bottom: 4px; }
+        .edit-section input, .edit-section textarea, .edit-section select {
+            width: 100%; padding: 8px 12px; box-sizing: border-box;
+            border: 1px solid #ddd; border-radius: 6px; font-size: 14px; margin-bottom: 14px;
+        }
+        .edit-section textarea { resize: vertical; min-height: 120px; }
+        .edit-section input[type="file"] { padding: 4px; background: white; }
+        .photo-preview { width: 100%; max-height: 200px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; }
+        .save-btn { background: #e67e22; color: white; border: none; padding: 9px 22px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        .save-btn:hover { background: #cf6d17; }
+
+        .delete-form { margin-top: 30px; text-align: right; }
+        .delete-btn { background: none; border: 1px solid #e74c3c; color: #e74c3c; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        .delete-btn:hover { background: #e74c3c; color: white; }
+    </style>
+</head>
+<body>
+    <a class="back-link" href="/">← レシピ一覧に戻る</a>
+
+    {% if recipe[5] %}
+    <img class="hero-image" src="{{ recipe[5] }}" alt="{{ recipe[1] }}" onerror="this.style.display='none'">
+    {% endif %}
+
+    <h1>{{ recipe[1] }}</h1>
+
+    <div class="badges">
+        {% if recipe[8] %}
+        <a href="/?cat={{ recipe[8] }}" class="badge-cat">{{ recipe[8] }}</a>
+        {% endif %}
+        {% if recipe[9] %}
+            {% for t in recipe[9].split(',') %}
+            {% if t.strip() %}
+            <a href="/?tag={{ t.strip() }}" class="badge-tag">{{ t.strip() }}</a>
+            {% endif %}
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    {% if recipe[2] %}
+    <a class="source-link" href="{{ recipe[2] }}" target="_blank">🔗 元のレシピを見る（{{ recipe[2][:60] }}{% if recipe[2]|length > 60 %}...{% endif %}）</a>
+    {% endif %}
+    <div class="meta">保存日：{{ recipe[7] }}</div>
+
+    <!-- 材料 -->
+    <div class="section">
+        <h2>🥕 材料</h2>
+        {% if recipe[3] %}
+        <ul class="ingredients-list">
+            {% for item in recipe[3].split('\n') %}
+            {% if item.strip() %}<li>{{ item.strip() }}</li>{% endif %}
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="empty-note">材料が登録されていません。下の編集欄から追加できます。</p>
+        {% endif %}
+    </div>
+
+    <!-- 手順 -->
+    <div class="section">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0;">
+            <h2 style="margin-bottom:0;">👨‍🍳 作り方</h2>
+            {% if recipe[4] %}
+            <form method="post" action="/fix-steps/{{ recipe[0] }}" style="margin:0;">
+                <button type="submit" style="font-size:12px;background:none;border:1px solid #ccc;border-radius:4px;padding:4px 10px;cursor:pointer;color:#666;">手順を再分割</button>
+            </form>
+            {% endif %}
+        </div>
+        <hr style="border:none;border-top:2px solid #fde9ce;margin:10px 0 16px;">
+        {% if recipe[4] %}
+        <ol class="steps-list">
+            {% for step in recipe[4].split('\n') %}
+            {% if step.strip() %}<li>{{ step.strip() }}</li>{% endif %}
+            {% endfor %}
+        </ol>
+        {% else %}
+        <p class="empty-note">手順が登録されていません。下の編集欄から追加できます。</p>
+        {% endif %}
+    </div>
+
+    <!-- メモ -->
+    {% if recipe[6] %}
+    <div class="section">
+        <h2>📝 メモ</h2>
+        <div class="memo-box">{{ recipe[6] }}</div>
+    </div>
+    {% endif %}
+
+    <!-- 編集セクション -->
+    <div class="edit-section">
+        <div class="edit-header" onclick="toggleEdit()">
+            <h2>✏️ 編集する</h2>
+            <span class="toggle-arrow" id="arrow">▼</span>
+        </div>
+        <div class="edit-body" id="edit-body">
+            <form method="post" action="/recipe/{{ recipe[0] }}/update" enctype="multipart/form-data">
+
+                <!-- 材料・手順 -->
+                <div class="two-col">
+                    <div>
+                        <label>材料（1行に1つ）</label>
+                        <textarea name="ingredients" placeholder="鶏もも肉 300g&#10;醤油 大さじ2&#10;みりん 大さじ1">{{ recipe[3] or '' }}</textarea>
+                    </div>
+                    <div>
+                        <label>作り方（1行に1手順）</label>
+                        <textarea name="steps" placeholder="①鶏肉を一口大に切る&#10;②調味料に漬ける&#10;③揚げる">{{ recipe[4] or '' }}</textarea>
+                    </div>
+                </div>
+
+                <!-- 参考URL -->
+                <label>参考URL</label>
+                <input type="url" name="url" value="{{ recipe[2] or '' }}" placeholder="https://...">
+
+                <!-- カテゴリー・タグ -->
+                <div class="two-col">
+                    <div>
+                        <label>カテゴリー</label>
+                        <input type="text" name="category"
+                               value="{{ recipe[8] or '' }}"
+                               placeholder="カテゴリーを入力"
+                               list="category-list">
+                        <datalist id="category-list">
+                            {% for cat in categories %}<option value="{{ cat }}">{% endfor %}
+                        </datalist>
+                    </div>
+                    <div>
+                        <label>タグ（カンマ区切りで複数可）</label>
+                        <input type="text" name="tags"
+                               value="{{ recipe[9] or '' }}"
+                               placeholder="時短, 節約, 子供向け">
+                    </div>
+                </div>
+
+                <!-- メモ -->
+                <label>メモ</label>
+                <textarea name="memo" style="min-height:70px;" placeholder="アレンジや感想など">{{ recipe[6] or '' }}</textarea>
+
+                <!-- 写真 -->
+                <label>写真を変更（JPG・PNG・GIF・WebP）</label>
+                {% if recipe[5] %}
+                <img class="photo-preview" src="{{ recipe[5] }}" alt="現在の写真" onerror="this.style.display='none'">
+                {% endif %}
+                <input type="file" name="photo" accept="image/*">
+
+                <button class="save-btn" type="submit">保存する</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 削除 -->
+    <div class="delete-form">
+        <form method="post" action="/delete/{{ recipe[0] }}" onsubmit="return confirm('このレシピを削除しますか？')">
+            <button class="delete-btn" type="submit">このレシピを削除する</button>
+        </form>
+    </div>
+
+    <script>
+        function toggleEdit() {
+            const body  = document.getElementById("edit-body");
+            const arrow = document.getElementById("arrow");
+            const open  = body.classList.toggle("open");
+            arrow.textContent = open ? "▲" : "▼";
+        }
+        {% if not recipe[3] or not recipe[4] or not recipe[8] %}
+        toggleEdit();
+        {% endif %}
+    </script>
+</body>
+</html>
