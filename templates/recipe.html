@@ -112,7 +112,7 @@
         <h2>🥕 材料 <span class="edit-hint">タップして編集</span></h2>
         {% set ns = namespace(i=0) %}
         <ul class="ingredients-list" id="ingredients-list">
-            {% for item in recipe[3].split('\n') if recipe[3] else [] %}
+            {% for item in (recipe[3] or '').split('\n') %}
             {% if item.strip() %}
             <li class="editable-line" data-field="ingredients" data-index="{{ ns.i }}">
                 <span class="line-text">{{ item.strip() }}</span>
@@ -140,7 +140,7 @@
         <hr style="border:none;border-top:2px solid #fde9ce;margin:10px 0 16px;">
         {% set ns2 = namespace(i=0) %}
         <ol class="steps-list" id="steps-list">
-            {% for step in recipe[4].split('\n') if recipe[4] else [] %}
+            {% for step in (recipe[4] or '').split('\n') %}
             {% if step.strip() %}
             <li class="editable-step" data-field="steps" data-index="{{ ns2.i }}">
                 <span class="line-text">{{ step.strip() }}</span>
