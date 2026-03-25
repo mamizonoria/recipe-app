@@ -8,10 +8,13 @@ import psycopg2
 import cloudinary
 import cloudinary.uploader
 from dotenv import load_dotenv
+import calendar as cal_module
+from datetime import date
 
 load_dotenv()
 
 app = Flask(__name__)
+app.jinja_env.filters["enumerate"] = enumerate
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "webp"}
@@ -66,6 +69,14 @@ def init_db():
         CREATE TABLE IF NOT EXISTS categories (
             id SERIAL PRIMARY KEY,
             name TEXT NOT NULL UNIQUE
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS cooking_records (
+            id SERIAL PRIMARY KEY,
+            date DATE NOT NULL,
+            recipe_id INTEGER REFERENCES recipes(id) ON DELETE CASCADE,
+            memo TEXT DEFAULT ''
         )
     """)
     for name in ["主食", "副食"]:
@@ -362,6 +373,78 @@ def delete(recipe_id):
     cur.close()
     conn.close()
     return redirect("/")
+
+@app.route("/calendar")
+def calendar_view():
+    today = date.today()
+    year  = int(request.args.get("year",  today.year))
+    month = int(request.args.get("month", today.month))
+
+    conn = get_conn()
+    cur  = conn.cursor()
+    cur.execute("""
+        SELECT cr.id, cr.date, cr.memo, r.id, r.title, r.image_url
+        FROM cooking_records cr
+        JOIN recipes r ON cr.recipe_id = r.id
+        WHERE EXTRACT(YEAR  FROM cr.date) = %s
+          AND EXTRACT(MONTH FROM cr.date) = %s
+        ORDER BY cr.date, cr.id
+    """, (year, month))
+    records = cur.fetchall()
+    cur.execute("SELECT id, title FROM recipes ORDER BY title")
+    recipes = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    records_by_date = {}
+    for rec in records:
+        key = rec[1].strftime("%Y-%m-%d")
+        records_by_date.setdefault(key, []).append(rec)
+
+    prev_year,  prev_month  = (year - 1, 12) if month == 1  else (year, month - 1)
+    next_year,  next_month  = (year + 1,  1) if month == 12 else (year, month + 1)
+
+    return render_template("calendar.html",
+        year=year, month=month,
+        cal=cal_module.monthcalendar(year, month),
+        records_by_date=records_by_date,
+        recipes=recipes,
+        today=today.strftime("%Y-%m-%d"),
+        prev_year=prev_year, prev_month=prev_month,
+        next_year=next_year, next_month=next_month,
+        month_name=f"{year}年{month}月"
+    )
+
+@app.route("/calendar/add", methods=["POST"])
+def calendar_add():
+    date_str  = request.form.get("date", "").strip()
+    recipe_id = request.form.get("recipe_id", "").strip()
+    memo      = request.form.get("memo", "").strip()
+    year      = request.form.get("year", "")
+    month     = request.form.get("month", "")
+    if date_str and recipe_id:
+        conn = get_conn()
+        cur  = conn.cursor()
+        cur.execute(
+            "INSERT INTO cooking_records (date, recipe_id, memo) VALUES (%s, %s, %s)",
+            (date_str, int(recipe_id), memo)
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+    return redirect(f"/calendar?year={year}&month={month}")
+
+@app.route("/calendar/delete/<int:record_id>", methods=["POST"])
+def calendar_delete(record_id):
+    year  = request.form.get("year", "")
+    month = request.form.get("month", "")
+    conn  = get_conn()
+    cur   = conn.cursor()
+    cur.execute("DELETE FROM cooking_records WHERE id = %s", (record_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(f"/calendar?year={year}&month={month}")
 
 # gunicornでもローカルでもDB初期化を実行
 with app.app_context():
