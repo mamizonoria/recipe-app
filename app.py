@@ -13,7 +13,7 @@ load_dotenv()
 
 app = Flask(__name__)
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "")
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "webp"}
 
 cloudinary.config(
