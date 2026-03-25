@@ -76,9 +76,20 @@ def init_db():
             id SERIAL PRIMARY KEY,
             date DATE NOT NULL,
             recipe_id INTEGER REFERENCES recipes(id) ON DELETE CASCADE,
+            custom_name TEXT DEFAULT '',
+            meal_type TEXT DEFAULT '夕食',
             memo TEXT DEFAULT ''
         )
     """)
+    # 既存テーブルへのカラム追加（マイグレーション）
+    for col, defn in [("custom_name", "TEXT DEFAULT ''"), ("meal_type", "TEXT DEFAULT '夕食'")]:
+        cur.execute(
+            "SELECT 1 FROM information_schema.columns WHERE table_name='cooking_records' AND column_name=%s",
+            (col,)
+        )
+        if not cur.fetchone():
+            cur.execute(f"ALTER TABLE cooking_records ADD COLUMN {col} {defn}")
+    cur.execute("ALTER TABLE cooking_records ALTER COLUMN recipe_id DROP NOT NULL")
     for name in ["主食", "副食"]:
         cur.execute(
             "INSERT INTO categories (name) VALUES (%s) ON CONFLICT (name) DO NOTHING",
@@ -376,38 +387,59 @@ def delete(recipe_id):
 
 @app.route("/calendar")
 def calendar_view():
-    today = date.today()
-    year  = int(request.args.get("year",  today.year))
-    month = int(request.args.get("month", today.month))
+    from datetime import datetime as dt
+    today         = date.today()
+    year          = int(request.args.get("year",  today.year))
+    month         = int(request.args.get("month", today.month))
+    selected_date = request.args.get("date", "")
 
     conn = get_conn()
     cur  = conn.cursor()
+
+    # その月の日付×食事タイプ（ドット表示用）
     cur.execute("""
-        SELECT cr.id, cr.date, cr.memo, r.id, r.title, r.image_url
-        FROM cooking_records cr
-        JOIN recipes r ON cr.recipe_id = r.id
-        WHERE EXTRACT(YEAR  FROM cr.date) = %s
-          AND EXTRACT(MONTH FROM cr.date) = %s
-        ORDER BY cr.date, cr.id
+        SELECT DISTINCT date, meal_type FROM cooking_records
+        WHERE EXTRACT(YEAR FROM date) = %s AND EXTRACT(MONTH FROM date) = %s
     """, (year, month))
-    records = cur.fetchall()
+    dates_with_records = {}
+    for row in cur.fetchall():
+        dk = row[0].strftime("%Y-%m-%d")
+        dates_with_records.setdefault(dk, set()).add(row[1])
+
+    # 選択日の記録
+    records_by_meal = {"朝食": [], "昼食": [], "夕食": []}
+    if selected_date:
+        cur.execute("""
+            SELECT cr.id, cr.meal_type, cr.custom_name, cr.memo, r.id, r.title
+            FROM cooking_records cr
+            LEFT JOIN recipes r ON cr.recipe_id = r.id
+            WHERE cr.date = %s
+            ORDER BY CASE cr.meal_type WHEN '朝食' THEN 1 WHEN '昼食' THEN 2 ELSE 3 END, cr.id
+        """, (selected_date,))
+        for rec in cur.fetchall():
+            meal = rec[1] if rec[1] in records_by_meal else "夕食"
+            records_by_meal[meal].append(rec)
+
     cur.execute("SELECT id, title FROM recipes ORDER BY title")
     recipes = cur.fetchall()
     cur.close()
     conn.close()
 
-    records_by_date = {}
-    for rec in records:
-        key = rec[1].strftime("%Y-%m-%d")
-        records_by_date.setdefault(key, []).append(rec)
-
     prev_year,  prev_month  = (year - 1, 12) if month == 1  else (year, month - 1)
     next_year,  next_month  = (year + 1,  1) if month == 12 else (year, month + 1)
+
+    selected_date_label = ""
+    if selected_date:
+        d = dt.strptime(selected_date, "%Y-%m-%d")
+        selected_date_label = f"{d.year}年{d.month}月{d.day}日"
 
     return render_template("calendar.html",
         year=year, month=month,
         cal=cal_module.monthcalendar(year, month),
-        records_by_date=records_by_date,
+        dates_with_records=dates_with_records,
+        selected_date=selected_date,
+        selected_date_label=selected_date_label,
+        records_by_meal=records_by_meal,
         recipes=recipes,
         today=today.strftime("%Y-%m-%d"),
         prev_year=prev_year, prev_month=prev_month,
@@ -417,34 +449,37 @@ def calendar_view():
 
 @app.route("/calendar/add", methods=["POST"])
 def calendar_add():
-    date_str  = request.form.get("date", "").strip()
-    recipe_id = request.form.get("recipe_id", "").strip()
-    memo      = request.form.get("memo", "").strip()
-    year      = request.form.get("year", "")
-    month     = request.form.get("month", "")
-    if date_str and recipe_id:
+    date_str    = request.form.get("date", "").strip()
+    recipe_id   = request.form.get("recipe_id", "").strip() or None
+    custom_name = request.form.get("custom_name", "").strip()
+    meal_type   = request.form.get("meal_type", "夕食").strip()
+    memo        = request.form.get("memo", "").strip()
+    year        = request.form.get("year", "")
+    month       = request.form.get("month", "")
+    if date_str and (recipe_id or custom_name):
         conn = get_conn()
         cur  = conn.cursor()
         cur.execute(
-            "INSERT INTO cooking_records (date, recipe_id, memo) VALUES (%s, %s, %s)",
-            (date_str, int(recipe_id), memo)
+            "INSERT INTO cooking_records (date, recipe_id, custom_name, meal_type, memo) VALUES (%s, %s, %s, %s, %s)",
+            (date_str, recipe_id, custom_name, meal_type, memo)
         )
         conn.commit()
         cur.close()
         conn.close()
-    return redirect(f"/calendar?year={year}&month={month}")
+    return redirect(f"/calendar?year={year}&month={month}&date={date_str}#detail")
 
 @app.route("/calendar/delete/<int:record_id>", methods=["POST"])
 def calendar_delete(record_id):
-    year  = request.form.get("year", "")
-    month = request.form.get("month", "")
-    conn  = get_conn()
-    cur   = conn.cursor()
+    year      = request.form.get("year", "")
+    month     = request.form.get("month", "")
+    date_str  = request.form.get("date", "")
+    conn = get_conn()
+    cur  = conn.cursor()
     cur.execute("DELETE FROM cooking_records WHERE id = %s", (record_id,))
     conn.commit()
     cur.close()
     conn.close()
-    return redirect(f"/calendar?year={year}&month={month}")
+    return redirect(f"/calendar?year={year}&month={month}&date={date_str}#detail")
 
 # gunicornでもローカルでもDB初期化を実行
 with app.app_context():
