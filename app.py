@@ -36,8 +36,14 @@ def save_upload(file):
         return None
     if not allowed_file(file.filename):
         return None
-    result = cloudinary.uploader.upload(file)
-    return result.get("secure_url")
+    try:
+        result = cloudinary.uploader.upload(file)
+        url = result.get("secure_url")
+        app.logger.info(f"Cloudinary upload success: {url}")
+        return url
+    except Exception as e:
+        app.logger.error(f"Cloudinary upload error: {e}")
+        return None
 
 def init_db():
     conn = get_conn()
@@ -357,7 +363,10 @@ def delete(recipe_id):
     conn.close()
     return redirect("/")
 
-if __name__ == "__main__":
+# gunicornでもローカルでもDB初期化を実行
+with app.app_context():
     init_db()
+
+if __name__ == "__main__":
     migrate_steps()
     app.run(host="0.0.0.0", port=8080)
