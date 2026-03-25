@@ -1,0 +1,21 @@
+{
+  "name": "レシピ帳",
+  "short_name": "レシピ帳",
+  "description": "レシピを保存・管理するアプリ",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fafafa",
+  "theme_color": "#e67e22",
+  "icons": [
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
