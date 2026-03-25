@@ -60,6 +60,24 @@
         .delete-form { margin-top: 30px; text-align: right; }
         .delete-btn { background: none; border: 1px solid #e74c3c; color: #e74c3c; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; }
         .delete-btn:hover { background: #e74c3c; color: white; }
+
+        /* インライン編集 */
+        .editable-line, .editable-step { cursor: pointer; border-radius: 4px; transition: background 0.12s; }
+        .editable-line:hover  { background: #fff8f0; }
+        .editable-step:hover  { background: #fff8f0; }
+        .edit-hint { font-size: 12px; color: #ccc; float: right; font-weight: normal; margin-top: 2px; }
+        .ingredients-list li.editing::before { display: none; }
+        .steps-list li.editing { padding-left: 12px; }
+        .steps-list li.editing::before { display: none; }
+        .line-edit-row { display: flex; align-items: center; gap: 6px; }
+        .line-input { flex: 1; padding: 6px 10px; border: 2px solid #e67e22; border-radius: 6px; font-size: 15px; outline: none; min-width: 0; }
+        .line-btn { padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; flex-shrink: 0; }
+        .line-btn-save   { background: #e67e22; color: white; }
+        .line-btn-cancel { background: #f0f0f0; color: #555; }
+        .line-btn-delete { background: none; color: #ccc; border: 1px solid #eee; }
+        .line-btn-delete:hover { color: #e74c3c; border-color: #e74c3c; }
+        .add-line-btn { display: flex; align-items: center; gap: 6px; margin-top: 10px; padding: 7px 14px; background: none; border: 1px dashed #ddd; border-radius: 6px; color: #bbb; cursor: pointer; font-size: 14px; width: 100%; }
+        .add-line-btn:hover { border-color: #e67e22; color: #e67e22; }
     </style>
 </head>
 <body>
@@ -91,38 +109,50 @@
 
     <!-- 材料 -->
     <div class="section">
-        <h2>🥕 材料</h2>
-        {% if recipe[3] %}
-        <ul class="ingredients-list">
-            {% for item in recipe[3].split('\n') %}
-            {% if item.strip() %}<li>{{ item.strip() }}</li>{% endif %}
+        <h2>🥕 材料 <span class="edit-hint">タップして編集</span></h2>
+        {% set ns = namespace(i=0) %}
+        <ul class="ingredients-list" id="ingredients-list">
+            {% for item in recipe[3].split('\n') if recipe[3] else [] %}
+            {% if item.strip() %}
+            <li class="editable-line" data-field="ingredients" data-index="{{ ns.i }}">
+                <span class="line-text">{{ item.strip() }}</span>
+            </li>
+            {% set ns.i = ns.i + 1 %}
+            {% endif %}
             {% endfor %}
         </ul>
-        {% else %}
-        <p class="empty-note">材料が登録されていません。下の編集欄から追加できます。</p>
+        {% if not recipe[3] %}
+        <p class="empty-note" id="ingredients-empty">材料が登録されていません</p>
         {% endif %}
+        <button class="add-line-btn" onclick="addLine('ingredients')">＋ 材料を追加</button>
     </div>
 
     <!-- 手順 -->
     <div class="section">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0;">
-            <h2 style="margin-bottom:0;">👨‍🍳 作り方</h2>
+            <h2 style="margin-bottom:0;">👨‍🍳 作り方 <span class="edit-hint">タップして編集</span></h2>
             {% if recipe[4] %}
             <form method="post" action="/fix-steps/{{ recipe[0] }}" style="margin:0;">
-                <button type="submit" style="font-size:12px;background:none;border:1px solid #ccc;border-radius:4px;padding:4px 10px;cursor:pointer;color:#666;">手順を再分割</button>
+                <button type="submit" style="font-size:12px;background:none;border:1px solid #ccc;border-radius:4px;padding:4px 10px;cursor:pointer;color:#666;">再分割</button>
             </form>
             {% endif %}
         </div>
         <hr style="border:none;border-top:2px solid #fde9ce;margin:10px 0 16px;">
-        {% if recipe[4] %}
-        <ol class="steps-list">
-            {% for step in recipe[4].split('\n') %}
-            {% if step.strip() %}<li>{{ step.strip() }}</li>{% endif %}
+        {% set ns2 = namespace(i=0) %}
+        <ol class="steps-list" id="steps-list">
+            {% for step in recipe[4].split('\n') if recipe[4] else [] %}
+            {% if step.strip() %}
+            <li class="editable-step" data-field="steps" data-index="{{ ns2.i }}">
+                <span class="line-text">{{ step.strip() }}</span>
+            </li>
+            {% set ns2.i = ns2.i + 1 %}
+            {% endif %}
             {% endfor %}
         </ol>
-        {% else %}
-        <p class="empty-note">手順が登録されていません。下の編集欄から追加できます。</p>
+        {% if not recipe[4] %}
+        <p class="empty-note" id="steps-empty">手順が登録されていません</p>
         {% endif %}
+        <button class="add-line-btn" onclick="addLine('steps')">＋ 手順を追加</button>
     </div>
 
     <!-- メモ -->
@@ -202,6 +232,7 @@
     </div>
 
     <script>
+        /* ===== 既存の編集フォーム開閉 ===== */
         function toggleEdit() {
             const body  = document.getElementById("edit-body");
             const arrow = document.getElementById("arrow");
@@ -211,6 +242,124 @@
         {% if not recipe[3] or not recipe[4] or not recipe[8] %}
         toggleEdit();
         {% endif %}
+
+        /* ===== インライン行編集 ===== */
+        const RECIPE_ID = {{ recipe[0] }};
+
+        // 現在の行データをJSに読み込む
+        const lines = {
+            ingredients: {{ (recipe[3] or '')|tojson }}.split('\n').map(l => l.trim()).filter(Boolean),
+            steps:       {{ (recipe[4] or '')|tojson }}.split('\n').map(l => l.trim()).filter(Boolean)
+        };
+
+        // <li>をクリックで編集モードに
+        document.querySelectorAll('.editable-line, .editable-step').forEach(li => {
+            li.addEventListener('click', () => editLine(li));
+        });
+
+        function editLine(li) {
+            if (li.classList.contains('editing')) return;
+            const field = li.dataset.field;
+            const idx   = parseInt(li.dataset.index);
+            const orig  = lines[field][idx] || '';
+
+            li.classList.add('editing');
+
+            const input = document.createElement('input');
+            input.className = 'line-input';
+            input.value = orig;
+            input.addEventListener('keydown', e => {
+                if (e.key === 'Enter')  { e.preventDefault(); saveLine(li, input.value); }
+                if (e.key === 'Escape') cancelLine(li);
+            });
+
+            const saveBtn   = makeBtn('✓', 'line-btn-save',   () => saveLine(li, input.value));
+            const cancelBtn = makeBtn('✕', 'line-btn-cancel', () => cancelLine(li));
+            const deleteBtn = makeBtn('🗑', 'line-btn-delete', () => deleteLine(li));
+
+            const row = document.createElement('div');
+            row.className = 'line-edit-row';
+            row.append(input, saveBtn, cancelBtn, deleteBtn);
+
+            li.innerHTML = '';
+            li.appendChild(row);
+            input.focus();
+            input.select();
+        }
+
+        function makeBtn(label, cls, handler) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'line-btn ' + cls;
+            b.textContent = label;
+            b.addEventListener('click', e => { e.stopPropagation(); handler(); });
+            return b;
+        }
+
+        async function saveLine(li, newText) {
+            const field = li.dataset.field;
+            const idx   = parseInt(li.dataset.index);
+            newText = newText.trim();
+            if (newText) {
+                lines[field][idx] = newText;
+            } else {
+                lines[field].splice(idx, 1);
+            }
+            await sendUpdate(field);
+            rerenderList(field);
+        }
+
+        function cancelLine(li) {
+            rerenderList(li.dataset.field);
+        }
+
+        async function deleteLine(li) {
+            const field = li.dataset.field;
+            const idx   = parseInt(li.dataset.index);
+            lines[field].splice(idx, 1);
+            await sendUpdate(field);
+            rerenderList(field);
+        }
+
+        async function addLine(field) {
+            lines[field].push('');
+            rerenderList(field);
+            // 末尾の新しい行を即編集モードに
+            const listEl = document.getElementById(field + '-list');
+            const lastLi = listEl.lastElementChild;
+            if (lastLi) editLine(lastLi);
+        }
+
+        async function sendUpdate(field) {
+            await fetch(`/recipe/${RECIPE_ID}/update-lines`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `field=${encodeURIComponent(field)}&value=${encodeURIComponent(lines[field].join('\n'))}`
+            });
+        }
+
+        function rerenderList(field) {
+            const listEl  = document.getElementById(field + '-list');
+            const isEmpty = document.getElementById(field + '-empty');
+            const isIng   = field === 'ingredients';
+
+            listEl.innerHTML = '';
+            lines[field].forEach((text, i) => {
+                const li = document.createElement('li');
+                li.className  = isIng ? 'editable-line' : 'editable-step';
+                li.dataset.field = field;
+                li.dataset.index = i;
+                li.addEventListener('click', () => editLine(li));
+
+                const span = document.createElement('span');
+                span.className   = 'line-text';
+                span.textContent = text;
+                li.appendChild(span);
+                listEl.appendChild(li);
+            });
+
+            if (isEmpty) isEmpty.style.display = lines[field].length ? 'none' : '';
+        }
     </script>
 </body>
 </html>

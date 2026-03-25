@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect, jsonify
 import re
 import json
 import os
@@ -251,19 +251,29 @@ def recipe_detail(recipe_id):
         return "レシピが見つかりません", 404
     return render_template("recipe.html", recipe=recipe, categories=get_categories())
 
+@app.route("/fetch-preview")
+def fetch_preview():
+    url = request.args.get("url", "").strip()
+    if not url:
+        return jsonify({"error": "URLが必要です"}), 400
+    info = fetch_recipe(url)
+    return jsonify({"title": info["title"]})
+
 @app.route("/add", methods=["POST"])
 def add():
-    url      = request.form.get("url", "").strip()
-    memo     = request.form.get("memo", "").strip()
-    category = request.form.get("category", "").strip()
-    tags     = ", ".join([t.strip() for t in request.form.get("tags", "").split(",") if t.strip()])
+    url            = request.form.get("url", "").strip()
+    title_override = request.form.get("title_override", "").strip()
+    memo           = request.form.get("memo", "").strip()
+    category       = request.form.get("category", "").strip()
+    tags           = ", ".join([t.strip() for t in request.form.get("tags", "").split(",") if t.strip()])
     if url:
-        info = fetch_recipe(url)
-        conn = get_conn()
-        cur = conn.cursor()
+        info  = fetch_recipe(url)
+        title = title_override if title_override else info["title"]
+        conn  = get_conn()
+        cur   = conn.cursor()
         cur.execute(
             "INSERT INTO recipes (title, url, ingredients, steps, image_url, memo, category, tags) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
-            (info["title"], url, info["ingredients"], info["steps"], info["image_url"], memo, category, tags)
+            (title, url, info["ingredients"], info["steps"], info["image_url"], memo, category, tags)
         )
         conn.commit()
         cur.close()
@@ -320,6 +330,20 @@ def update(recipe_id):
     cur.close()
     conn.close()
     return redirect(f"/recipe/{recipe_id}")
+
+@app.route("/recipe/<int:recipe_id>/update-lines", methods=["POST"])
+def update_lines(recipe_id):
+    field = request.form.get("field")
+    value = request.form.get("value", "")
+    if field not in ("ingredients", "steps"):
+        return jsonify({"error": "invalid field"}), 400
+    conn = get_conn()
+    cur  = conn.cursor()
+    cur.execute(f"UPDATE recipes SET {field} = %s WHERE id = %s", (value, recipe_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"ok": True})
 
 @app.route("/fix-steps/<int:recipe_id>", methods=["POST"])
 def fix_steps(recipe_id):
