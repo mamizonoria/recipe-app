@@ -82,6 +82,16 @@
         /* ズーム防止（iOS Safari は16px未満でズームする） */
         input, textarea, select { font-size: 16px; }
 
+        /* メモ欄 */
+        .memo-section { margin-bottom: 20px; }
+        .memo-display { white-space: pre-wrap; background: #fffde7; border: 1px dashed #ffe082; border-radius: 8px; padding: 14px 16px; font-size: 15px; line-height: 1.7; color: #555; cursor: pointer; min-height: 48px; }
+        .memo-display:hover { border-color: #e67e22; }
+        .memo-display.empty { color: #ccc; font-style: italic; }
+        .memo-textarea { width: 100%; padding: 12px 14px; border: 2px solid #e67e22; border-radius: 8px; font-size: 15px; line-height: 1.7; resize: vertical; min-height: 100px; outline: none; font-family: inherit; }
+        .memo-actions { display: flex; gap: 8px; margin-top: 8px; justify-content: flex-end; }
+        .memo-save-btn   { background: #e67e22; color: white; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        .memo-cancel-btn { background: #f0f0f0; color: #555; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+
         /* タイトルインライン編集 */
         .editable-title { cursor: pointer; }
         .editable-title:hover { color: #e67e22; }
@@ -115,6 +125,20 @@
     <a class="source-link" href="{{ recipe[2] }}" target="_blank">🔗 元のレシピを見る</a>
     {% endif %}
     <div class="meta">保存日：{{ recipe[7] }}</div>
+
+    <!-- メモ -->
+    <div class="memo-section">
+        <div id="memo-display"
+             class="memo-display {% if not recipe[6] %}empty{% endif %}"
+             onclick="startMemoEdit()">{{ recipe[6] or 'メモを追加（タップして編集）' }}</div>
+        <div id="memo-edit" style="display:none;">
+            <textarea class="memo-textarea" id="memo-textarea">{{ recipe[6] or '' }}</textarea>
+            <div class="memo-actions">
+                <button class="memo-cancel-btn" onclick="cancelMemoEdit()">キャンセル</button>
+                <button class="memo-save-btn"   onclick="saveMemo()">保存</button>
+            </div>
+        </div>
+    </div>
 
     <!-- 材料 -->
     <div class="section">
@@ -251,6 +275,34 @@
         {% if not recipe[3] or not recipe[4] or not recipe[8] %}
         toggleEdit();
         {% endif %}
+
+        /* ===== メモ編集 ===== */
+        function startMemoEdit() {
+            document.getElementById('memo-display').style.display = 'none';
+            document.getElementById('memo-edit').style.display = 'block';
+            const ta = document.getElementById('memo-textarea');
+            ta.focus();
+            ta.setSelectionRange(ta.value.length, ta.value.length);
+        }
+
+        async function saveMemo() {
+            const value = document.getElementById('memo-textarea').value;
+            await fetch(`/recipe/${RECIPE_ID}/update-lines`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `field=memo&value=${encodeURIComponent(value)}`
+            });
+            const display = document.getElementById('memo-display');
+            display.textContent = value || 'メモを追加（タップして編集）';
+            display.classList.toggle('empty', !value);
+            document.getElementById('memo-edit').style.display = 'none';
+            display.style.display = '';
+        }
+
+        function cancelMemoEdit() {
+            document.getElementById('memo-edit').style.display = 'none';
+            document.getElementById('memo-display').style.display = '';
+        }
 
         /* ===== タイトル編集 ===== */
         function editTitle() {

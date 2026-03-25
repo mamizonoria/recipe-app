@@ -356,7 +356,7 @@ def update(recipe_id):
 def update_lines(recipe_id):
     field = request.form.get("field")
     value = request.form.get("value", "")
-    if field not in ("ingredients", "steps", "title"):
+    if field not in ("ingredients", "steps", "title", "memo"):
         return jsonify({"error": "invalid field"}), 400
     conn = get_conn()
     cur  = conn.cursor()
