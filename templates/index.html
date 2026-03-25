@@ -49,6 +49,9 @@
         .tab-pane.active { display: block; }
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
+
+        /* ズーム防止（iOS Safari は16px未満でズームする） */
+        input, textarea, select { font-size: 16px; }
         .add-form label { font-size: 13px; color: #555; display: block; margin-bottom: 4px; }
         .add-form input, .add-form textarea { width: 100%; padding: 9px 12px; margin-bottom: 14px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
         .add-form textarea { resize: vertical; min-height: 100px; }
@@ -61,6 +64,7 @@
         /* カード */
         .recipe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
         .recipe-card { background: white; border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.1); overflow: hidden; position: relative; }
+        .recipe-card > a { display: block; }
         .recipe-card img { width: 100%; height: 160px; object-fit: cover; display: block; }
         .recipe-card .no-image { width: 100%; height: 160px; background: #f0ece4; display: flex; align-items: center; justify-content: center; font-size: 40px; }
         .recipe-card .card-body { padding: 14px; }
@@ -172,7 +176,14 @@
         <div class="tab-pane active" id="tab-url">
             <form method="post" action="/add" onsubmit="showLoading()">
                 <label>レシピのURL（材料・手順を自動取得します）</label>
-                <input type="url" name="url" placeholder="https://cookpad.com/recipe/..." required>
+                <div style="display:flex; gap:8px; margin-bottom:14px;">
+                    <input type="url" name="url" id="url-input" placeholder="https://cookpad.com/recipe/..." required style="flex:1; margin:0;">
+                    <button type="button" class="btn-orange" id="preview-btn" onclick="previewTitle()" style="margin:0; white-space:nowrap;">タイトル確認</button>
+                </div>
+                <div id="title-edit" style="display:none;">
+                    <label>レシピ名（編集できます）</label>
+                    <input type="text" name="title_override" id="title-input" placeholder="">
+                </div>
                 <div class="form-row">
                     <div>
                         <label>カテゴリー</label>
@@ -278,7 +289,8 @@
             </div>
             <a href="/recipe/{{ r[0] }}" onclick="if(document.body.classList.contains('select-mode')){event.preventDefault();}">
                 {% if r[5] %}
-                    <img src="{{ r[5] }}" alt="{{ r[1] }}" onerror="this.style.display='none'">
+                    <img src="{{ r[5] }}" alt="{{ r[1] }}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-image" style="display:none">🍽️</div>
                 {% else %}
                     <div class="no-image">🍽️</div>
                 {% endif %}
@@ -312,6 +324,23 @@
     <script>
         function showLoading() {
             document.getElementById("loading").style.display = "inline";
+        }
+
+        async function previewTitle() {
+            const url = document.getElementById("url-input").value.trim();
+            if (!url) { alert("URLを入力してください"); return; }
+            const btn = document.getElementById("preview-btn");
+            btn.textContent = "取得中..."; btn.disabled = true;
+            try {
+                const res  = await fetch("/fetch-preview?url=" + encodeURIComponent(url));
+                const data = await res.json();
+                document.getElementById("title-input").value = data.title || "";
+                document.getElementById("title-edit").style.display = "block";
+            } catch(e) {
+                alert("タイトルの取得に失敗しました");
+            } finally {
+                btn.textContent = "タイトル確認"; btn.disabled = false;
+            }
         }
 
         function switchTab(name, btn) {

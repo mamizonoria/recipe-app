@@ -78,6 +78,15 @@
         .line-btn-delete:hover { color: #e74c3c; border-color: #e74c3c; }
         .add-line-btn { display: flex; align-items: center; gap: 6px; margin-top: 10px; padding: 7px 14px; background: none; border: 1px dashed #ddd; border-radius: 6px; color: #bbb; cursor: pointer; font-size: 14px; width: 100%; }
         .add-line-btn:hover { border-color: #e67e22; color: #e67e22; }
+
+        /* ズーム防止（iOS Safari は16px未満でズームする） */
+        input, textarea, select { font-size: 16px; }
+
+        /* タイトルインライン編集 */
+        .editable-title { cursor: pointer; }
+        .editable-title:hover { color: #e67e22; }
+        .title-edit-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+        .title-input { font-size: 20px; font-weight: bold; color: #2c3e50; flex: 1; min-width: 0; padding: 6px 10px; border: 2px solid #e67e22; border-radius: 6px; outline: none; }
     </style>
 </head>
 <body>
@@ -87,7 +96,7 @@
     <img class="hero-image" src="{{ recipe[5] }}" alt="{{ recipe[1] }}" onerror="this.style.display='none'">
     {% endif %}
 
-    <h1>{{ recipe[1] }}</h1>
+    <h1 id="recipe-title" class="editable-title" onclick="editTitle()" title="タップして編集">{{ recipe[1] }}</h1>
 
     <div class="badges">
         {% if recipe[8] %}
@@ -242,6 +251,53 @@
         {% if not recipe[3] or not recipe[4] or not recipe[8] %}
         toggleEdit();
         {% endif %}
+
+        /* ===== タイトル編集 ===== */
+        function editTitle() {
+            const h1 = document.getElementById('recipe-title');
+            if (h1.classList.contains('editing')) return;
+            h1.classList.add('editing');
+            const orig = h1.textContent.trim();
+
+            const input = document.createElement('input');
+            input.className = 'title-input';
+            input.value = orig;
+            input.addEventListener('keydown', e => {
+                if (e.key === 'Enter')  { e.preventDefault(); saveTitle(input.value); }
+                if (e.key === 'Escape') cancelTitle(orig);
+            });
+
+            const saveBtn   = makeBtn('✓ 保存', 'line-btn line-btn-save',   () => saveTitle(input.value));
+            const cancelBtn = makeBtn('✕',      'line-btn line-btn-cancel', () => cancelTitle(orig));
+
+            const row = document.createElement('div');
+            row.className = 'title-edit-row';
+            row.append(input, saveBtn, cancelBtn);
+            h1.innerHTML = '';
+            h1.appendChild(row);
+            input.focus();
+            input.select();
+        }
+
+        async function saveTitle(newTitle) {
+            newTitle = newTitle.trim();
+            if (!newTitle) return;
+            const h1 = document.getElementById('recipe-title');
+            await fetch(`/recipe/${RECIPE_ID}/update-lines`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `field=title&value=${encodeURIComponent(newTitle)}`
+            });
+            h1.classList.remove('editing');
+            h1.textContent = newTitle;
+            document.title = newTitle + ' - レシピ帳';
+        }
+
+        function cancelTitle(orig) {
+            const h1 = document.getElementById('recipe-title');
+            h1.classList.remove('editing');
+            h1.textContent = orig;
+        }
 
         /* ===== インライン行編集 ===== */
         const RECIPE_ID = {{ recipe[0] }};
