@@ -5,6 +5,7 @@ import os
 import requests
 from bs4 import BeautifulSoup
 import psycopg2
+import psycopg2.pool
 import cloudinary
 import cloudinary.uploader
 from dotenv import load_dotenv
@@ -28,8 +29,28 @@ cloudinary.config(
 
 COLS = "id, title, url, ingredients, steps, image_url, memo, created_at, category, tags"
 
+# コネクションプール（接続を使い回してレスポンスを高速化）
+_pool = None
+
+def _get_pool():
+    global _pool
+    if _pool is None or _pool.closed:
+        _pool = psycopg2.pool.ThreadedConnectionPool(1, 5, DATABASE_URL)
+    return _pool
+
+class _PooledConn:
+    """close() でプールに返却するラッパー"""
+    def __init__(self, conn, pool):
+        self._conn = conn
+        self._pool = pool
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+    def close(self):
+        self._pool.putconn(self._conn)
+
 def get_conn():
-    return psycopg2.connect(DATABASE_URL)
+    pool = _get_pool()
+    return _PooledConn(pool.getconn(), pool)
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
