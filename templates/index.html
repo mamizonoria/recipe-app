@@ -287,14 +287,14 @@
             <div class="checkbox-wrap">
                 <input type="checkbox" id="chk-{{ r[0] }}" onclick="event.stopPropagation()">
             </div>
-            <a href="/recipe/{{ r[0] }}" onclick="if(document.body.classList.contains('select-mode')){event.preventDefault();}">
+            <div onclick="event.stopPropagation(); if(!document.body.classList.contains('select-mode')) location.href='/recipe/{{ r[0] }}'; else toggleCard(document.getElementById('card-{{ r[0] }}'), {{ r[0] }});" style="cursor:pointer;">
                 {% if r[5] %}
-                    <img src="{{ r[5] }}" alt="{{ r[1] }}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <img src="{{ r[5] }}" alt="{{ r[1] }}" style="width:100%;height:160px;object-fit:cover;display:block;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
                     <div class="no-image" style="display:none">🍽️</div>
                 {% else %}
                     <div class="no-image">🍽️</div>
                 {% endif %}
-            </a>
+            </div>
             <form method="post" action="/delete/{{ r[0] }}" onsubmit="return confirm('削除しますか？')">
                 <button class="delete-btn" type="submit">✕</button>
             </form>
