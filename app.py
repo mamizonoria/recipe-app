@@ -420,7 +420,7 @@ def calendar_view():
             meal = rec[1] if rec[1] in records_by_meal else "夕食"
             records_by_meal[meal].append(rec)
 
-    cur.execute("SELECT id, title FROM recipes ORDER BY title")
+    cur.execute("SELECT id, title, category FROM recipes ORDER BY title")
     recipes = cur.fetchall()
     cur.close()
     conn.close()
@@ -441,6 +441,7 @@ def calendar_view():
         selected_date_label=selected_date_label,
         records_by_meal=records_by_meal,
         recipes=recipes,
+        categories=get_categories(),
         today=today.strftime("%Y-%m-%d"),
         prev_year=prev_year, prev_month=prev_month,
         next_year=next_year, next_month=next_month,

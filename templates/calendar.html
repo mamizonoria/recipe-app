@@ -89,6 +89,11 @@
         .mode-btn { flex: 1; padding: 9px; background: white; border: none; font-size: 13px; color: #888; cursor: pointer; transition: all 0.15s; }
         .mode-btn.active { background: #e67e22; color: white; font-weight: bold; }
 
+        /* カテゴリーフィルター */
+        .cat-filter { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+        .cat-btn { padding: 4px 12px; border: 1px solid #ddd; border-radius: 20px; background: white; font-size: 12px; color: #666; cursor: pointer; }
+        .cat-btn.active { background: #e67e22; color: white; border-color: #e67e22; }
+
         .modal label { font-size: 13px; color: #555; display: block; margin-bottom: 4px; }
         .modal select, .modal input[type=text] { width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; margin-bottom: 14px; }
         .modal input.search-box { margin-bottom: 6px; }
@@ -225,12 +230,19 @@
 
                 <!-- レシピ選択モード -->
                 <div id="mode-recipe">
-                    <label>レシピを検索</label>
-                    <input type="text" class="search-box" id="recipe-search" placeholder="レシピ名で絞り込み..." oninput="filterRecipes()" autocomplete="off">
+                    {% if categories %}
+                    <div class="cat-filter" id="cat-filter">
+                        <button type="button" class="cat-btn active" onclick="filterByCategory('', this)">すべて</button>
+                        {% for cat in categories %}
+                        <button type="button" class="cat-btn" onclick="filterByCategory('{{ cat }}', this)">{{ cat }}</button>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <input type="text" class="search-box" id="recipe-search" placeholder="レシピ名で検索..." oninput="filterRecipes()" autocomplete="off">
                     <label>レシピを選ぶ</label>
                     <select name="recipe_id" id="recipe-select" size="5">
                         {% for r in recipes %}
-                        <option value="{{ r[0] }}" data-title="{{ r[1] }}">{{ r[1] }}</option>
+                        <option value="{{ r[0] }}" data-title="{{ r[1] }}" data-category="{{ r[2] }}">{{ r[1] }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -254,14 +266,27 @@
 
     <script>
         let currentMode = 'recipe';
+        let currentCategory = '';
 
         function openModal(mealType) {
             document.getElementById("form-meal-type").value = mealType;
             document.getElementById("modal-title").textContent = mealType + "を記録する";
             document.getElementById("recipe-search").value = "";
+            currentCategory = '';
+            // カテゴリーボタンを「すべて」に戻す
+            document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("active"));
+            const allBtn = document.querySelector(".cat-btn");
+            if (allBtn) allBtn.classList.add("active");
             filterRecipes();
             switchMode('recipe');
             document.getElementById("modal-overlay").classList.add("open");
+        }
+
+        function filterByCategory(cat, btn) {
+            currentCategory = cat;
+            document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            filterRecipes();
         }
 
         function closeModal(e) {
@@ -280,10 +305,12 @@
         }
 
         function filterRecipes() {
-            const q = document.getElementById("recipe-search").value.toLowerCase();
+            const q   = document.getElementById("recipe-search").value.toLowerCase();
             const sel = document.getElementById("recipe-select");
             Array.from(sel.options).forEach(opt => {
-                opt.hidden = q && !opt.getAttribute("data-title").toLowerCase().includes(q);
+                const titleMatch = !q || opt.getAttribute("data-title").toLowerCase().includes(q);
+                const catMatch   = !currentCategory || opt.getAttribute("data-category") === currentCategory;
+                opt.hidden = !(titleMatch && catMatch);
             });
             const first = Array.from(sel.options).find(o => !o.hidden);
             if (first) first.selected = true;
