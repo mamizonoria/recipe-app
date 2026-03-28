@@ -133,7 +133,7 @@
     {% if recipe[2] %}
     <a class="source-link" href="{{ recipe[2] }}" target="_blank">🔗 元のレシピを見る</a>
     {% endif %}
-    <div class="meta">保存日：{{ recipe[7] }}</div>
+    <div class="meta">保存日：{{ recipe[7] }}{% if last_cooked %}&nbsp;&nbsp;最近作った日：{{ last_cooked.strftime('%Y年%-m月%-d日') }}{% endif %}</div>
 
     <!-- 今日の料理に追加 -->
     <div class="add-today-section">

@@ -266,11 +266,13 @@ def recipe_detail(recipe_id):
     cur = conn.cursor()
     cur.execute(f"SELECT {COLS} FROM recipes WHERE id = %s", (recipe_id,))
     recipe = cur.fetchone()
+    cur.execute("SELECT MAX(date) FROM cooking_records WHERE recipe_id = %s", (recipe_id,))
+    last_cooked = cur.fetchone()[0]
     cur.close()
     conn.close()
     if not recipe:
         return "レシピが見つかりません", 404
-    return render_template("recipe.html", recipe=recipe, categories=get_categories())
+    return render_template("recipe.html", recipe=recipe, categories=get_categories(), last_cooked=last_cooked)
 
 @app.route("/fetch-preview")
 def fetch_preview():
