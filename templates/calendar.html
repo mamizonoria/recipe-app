@@ -270,6 +270,19 @@
     <script>
         let currentMode = 'recipe';
         let currentCategory = '';
+        let allRecipeOptions = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const sel = document.getElementById("recipe-select");
+            if (sel) {
+                allRecipeOptions = Array.from(sel.options).map(opt => ({
+                    value: opt.value,
+                    title: opt.getAttribute("data-title") || "",
+                    category: opt.getAttribute("data-category") || "",
+                    text: opt.text
+                }));
+            }
+        });
 
         function openModal(mealType) {
             document.getElementById("form-meal-type").value = mealType;
@@ -310,13 +323,18 @@
         function filterRecipes() {
             const q   = document.getElementById("recipe-search").value.toLowerCase();
             const sel = document.getElementById("recipe-select");
-            Array.from(sel.options).forEach(opt => {
-                const titleMatch = !q || opt.getAttribute("data-title").toLowerCase().includes(q);
-                const catMatch   = !currentCategory || opt.getAttribute("data-category") === currentCategory;
-                opt.hidden = !(titleMatch && catMatch);
+            while (sel.options.length > 0) sel.remove(0);
+            allRecipeOptions.forEach(data => {
+                const titleMatch = !q || data.title.toLowerCase().includes(q);
+                const catMatch   = !currentCategory || data.category === currentCategory;
+                if (titleMatch && catMatch) {
+                    const opt = new Option(data.text, data.value);
+                    opt.setAttribute("data-title", data.title);
+                    opt.setAttribute("data-category", data.category);
+                    sel.add(opt);
+                }
             });
-            const first = Array.from(sel.options).find(o => !o.hidden);
-            if (first) first.selected = true;
+            if (sel.options.length > 0) sel.selectedIndex = 0;
         }
 
         function validateForm() {
