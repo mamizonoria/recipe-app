@@ -3,7 +3,7 @@
   "short_name": "レシピ帳",
   "description": "レシピを保存・管理するアプリ",
   "start_url": "/",
-  "display": "standalone",
+  "display": "browser",
   "background_color": "#fafafa",
   "theme_color": "#e67e22",
   "icons": [
