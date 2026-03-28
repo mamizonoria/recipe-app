@@ -103,6 +103,16 @@
     </style>
 </head>
 <body>
+    {% set error = request.args.get('error') %}
+    {% set existing_id = request.args.get('existing_id') %}
+    {% if error == 'duplicate_url' %}
+    <div style="background:#fff3cd; border:1px solid #ffc107; border-radius:8px; padding:12px 16px; margin-bottom:16px; font-size:14px; color:#856404;">
+        このURLはすでに登録されています。
+        {% if existing_id %}
+        <a href="/recipe/{{ existing_id }}" style="color:#e67e22; font-weight:bold;">既存のレシピを見る →</a>
+        {% endif %}
+    </div>
+    {% endif %}
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
         <h1 style="margin:0;">🍳 レシピ帳</h1>
         <a href="/calendar" style="font-size:14px; color:#e67e22; text-decoration:none; padding:8px 16px; border:1px solid #e67e22; border-radius:6px;">📅 料理カレンダー</a>

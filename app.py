@@ -288,10 +288,16 @@ def add():
     category       = request.form.get("category", "").strip()
     tags           = ", ".join([t.strip() for t in request.form.get("tags", "").split(",") if t.strip()])
     if url:
+        conn = get_conn()
+        cur  = conn.cursor()
+        cur.execute("SELECT id FROM recipes WHERE url = %s", (url,))
+        existing = cur.fetchone()
+        if existing:
+            cur.close()
+            conn.close()
+            return redirect(f"/?error=duplicate_url&existing_id={existing[0]}")
         info  = fetch_recipe(url)
         title = title_override if title_override else info["title"]
-        conn  = get_conn()
-        cur   = conn.cursor()
         cur.execute(
             "INSERT INTO recipes (title, url, ingredients, steps, image_url, memo, category, tags) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
             (title, url, info["ingredients"], info["steps"], info["image_url"], memo, category, tags)
