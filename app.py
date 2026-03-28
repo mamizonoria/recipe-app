@@ -253,7 +253,11 @@ def index():
         conditions.append("tags ILIKE %s")
         params.append(f"%{tag}%")
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-    cur.execute(f"SELECT {COLS} FROM recipes {where} ORDER BY created_at DESC", params)
+    cur.execute(f"""
+        SELECT {COLS},
+               (SELECT MAX(date) FROM cooking_records WHERE recipe_id = recipes.id) AS last_cooked
+        FROM recipes {where} ORDER BY created_at DESC
+    """, params)
     recipes = cur.fetchall()
     cur.close()
     conn.close()

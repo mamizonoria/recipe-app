@@ -310,7 +310,7 @@
             </form>
             <div class="card-body">
                 <h3><a href="/recipe/{{ r[0] }}">{{ r[1] }}</a></h3>
-                <div class="meta">{{ r[7] }}</div>
+                {% if r[10] %}<div class="meta">最近作った日：{{ r[10].strftime('%Y年%-m月%-d日') }}</div>{% endif %}
                 <div class="badges">
                     {% if r[8] %}
                     <a href="/?cat={{ r[8] }}" class="badge-cat">{{ r[8] }}</a>
