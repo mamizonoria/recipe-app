@@ -338,8 +338,10 @@ def add_manual():
         conn.close()
     return redirect("/")
 
-@app.route("/recipe/<int:recipe_id>/update", methods=["POST"])
+@app.route("/recipe/<int:recipe_id>/update", methods=["GET", "POST"])
 def update(recipe_id):
+    if request.method == "GET":
+        return redirect(f"/recipe/{recipe_id}")
     category    = request.form.get("category", "").strip()
     tags        = ", ".join([t.strip() for t in request.form.get("tags", "").split(",") if t.strip()])
     memo        = request.form.get("memo", "").strip()
