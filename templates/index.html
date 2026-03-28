@@ -109,7 +109,7 @@
     <div style="background:#fff3cd; border:1px solid #ffc107; border-radius:8px; padding:12px 16px; margin-bottom:16px; font-size:14px; color:#856404;">
         このURLはすでに登録されています。
         {% if existing_id %}
-        <a href="/recipe/{{ existing_id }}" style="color:#e67e22; font-weight:bold;">既存のレシピを見る →</a>
+        <a href="/recipe/{{ existing_id }}" target="_blank" style="color:#e67e22; font-weight:bold;">既存のレシピを見る →</a>
         {% endif %}
     </div>
     {% endif %}
@@ -297,7 +297,7 @@
             <div class="checkbox-wrap">
                 <input type="checkbox" id="chk-{{ r[0] }}" onclick="event.stopPropagation()">
             </div>
-            <div onclick="event.stopPropagation(); if(!document.body.classList.contains('select-mode')) location.href='/recipe/{{ r[0] }}'; else toggleCard(document.getElementById('card-{{ r[0] }}'), {{ r[0] }});" style="cursor:pointer;">
+            <div onclick="event.stopPropagation(); if(!document.body.classList.contains('select-mode')) window.open('/recipe/{{ r[0] }}', '_blank'); else toggleCard(document.getElementById('card-{{ r[0] }}'), {{ r[0] }});" style="cursor:pointer;">
                 {% if r[5] %}
                     <img src="{{ r[5] }}" alt="{{ r[1] }}" style="width:100%;height:160px;object-fit:cover;display:block;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
                     <div class="no-image" style="display:none">🍽️</div>
@@ -309,7 +309,7 @@
                 <button class="delete-btn" type="submit">✕</button>
             </form>
             <div class="card-body">
-                <h3><a href="/recipe/{{ r[0] }}">{{ r[1] }}</a></h3>
+                <h3><a href="/recipe/{{ r[0] }}" target="_blank">{{ r[1] }}</a></h3>
                 {% if r[10] %}<div class="meta">最近作った日：{{ r[10].strftime('%Y年%-m月%-d日') }}</div>{% endif %}
                 <div class="badges">
                     {% if r[8] %}
