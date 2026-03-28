@@ -98,9 +98,12 @@
         .title-edit-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
         .title-input { font-size: 20px; font-weight: bold; color: #2c3e50; flex: 1; min-width: 0; padding: 6px 10px; border: 2px solid #e67e22; border-radius: 6px; outline: none; }
 
-        /* 今日の料理に追加 */
+        /* 料理を記録 */
         .add-today-section { background: white; border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); padding: 16px 20px; margin-bottom: 20px; }
         .add-today-section h3 { margin: 0 0 12px; font-size: 15px; color: #888; }
+        .record-date-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .record-date-row label { font-size: 13px; color: #888; white-space: nowrap; }
+        .record-date-input { flex: 1; padding: 7px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 15px; color: #333; }
         .meal-btns { display: flex; gap: 10px; }
         .meal-btn { flex: 1; padding: 10px 0; border: none; border-radius: 8px; background: #fff3e0; color: #e65100; font-size: 15px; font-weight: bold; cursor: pointer; transition: background 0.15s; }
         .meal-btn:hover { background: #e67e22; color: white; }
@@ -133,15 +136,19 @@
     {% if recipe[2] %}
     <a class="source-link" href="{{ recipe[2] }}" target="_blank">🔗 元のレシピを見る</a>
     {% endif %}
-    <div class="meta">保存日：{{ recipe[7] }}{% if last_cooked %}&nbsp;&nbsp;最近作った日：{{ last_cooked.strftime('%Y年%-m月%-d日') }}{% endif %}</div>
+    {% if last_cooked %}<div class="meta">最近作った日：{{ last_cooked.strftime('%Y年%-m月%-d日') }}</div>{% endif %}
 
-    <!-- 今日の料理に追加 -->
+    <!-- 料理を記録 -->
     <div class="add-today-section">
-        <h3>今日の料理に追加</h3>
+        <h3>料理を記録する</h3>
+        <div class="record-date-row">
+            <label>日付</label>
+            <input type="date" class="record-date-input" id="record-date">
+        </div>
         <div class="meal-btns">
-            <button class="meal-btn" id="btn-breakfast" onclick="addToToday('朝食')">🌅 朝食</button>
-            <button class="meal-btn" id="btn-lunch"     onclick="addToToday('昼食')">☀️ 昼食</button>
-            <button class="meal-btn" id="btn-dinner"    onclick="addToToday('夕食')">🌙 夕食</button>
+            <button class="meal-btn" onclick="addToDate('朝食')">🌅 朝食</button>
+            <button class="meal-btn" onclick="addToDate('昼食')">☀️ 昼食</button>
+            <button class="meal-btn" onclick="addToDate('夕食')">🌙 夕食</button>
         </div>
         <div class="add-today-toast" id="add-today-toast"></div>
     </div>
@@ -466,22 +473,26 @@
             });
         }
 
-        /* ===== 今日の料理に追加 ===== */
-        async function addToToday(mealType) {
+        /* ===== 料理を記録 ===== */
+        // 日付をデフォルト今日に
+        const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+        document.getElementById('record-date').value = todayStr;
+
+        async function addToDate(mealType) {
+            const dateVal = document.getElementById('record-date').value;
+            if (!dateVal) { alert('日付を選んでください'); return; }
             const res = await fetch(`/recipe/${RECIPE_ID}/add-to-today`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ meal_type: mealType })
+                body: JSON.stringify({ meal_type: mealType, date: dateVal })
             });
             const data = await res.json();
             if (data.ok) {
-                const mealMap = { '朝食': 'breakfast', '昼食': 'lunch', '夕食': 'dinner' };
-                const btn = document.getElementById('btn-' + mealMap[mealType]);
-                btn.classList.add('done');
-                btn.textContent = '✓ ' + mealType + ' 登録済み';
+                const [y, m, d] = data.date.split('-');
                 const toast = document.getElementById('add-today-toast');
-                toast.textContent = `${data.date} の${mealType}に追加しました`;
+                toast.textContent = `${y}年${parseInt(m)}月${parseInt(d)}日の${mealType}に追加しました`;
                 toast.style.display = 'block';
+                setTimeout(() => { toast.style.display = 'none'; }, 3000);
             }
         }
 

@@ -526,17 +526,17 @@ def calendar_add():
 def add_to_today(recipe_id):
     from datetime import date as date_cls
     meal_type = request.json.get("meal_type", "夕食")
-    today = date_cls.today().isoformat()
+    date_str  = request.json.get("date") or date_cls.today().isoformat()
     conn = get_conn()
     cur  = conn.cursor()
     cur.execute(
         "INSERT INTO cooking_records (date, recipe_id, meal_type) VALUES (%s, %s, %s)",
-        (today, recipe_id, meal_type)
+        (date_str, recipe_id, meal_type)
     )
     conn.commit()
     cur.close()
     conn.close()
-    return {"ok": True, "date": today}
+    return {"ok": True, "date": date_str}
 
 @app.route("/calendar/delete/<int:record_id>", methods=["POST"])
 def calendar_delete(record_id):
