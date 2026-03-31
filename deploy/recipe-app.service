@@ -1,0 +1,20 @@
+[Unit]
+Description=Recipe App (Gunicorn)
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/recipe-app
+EnvironmentFile=/home/ubuntu/recipe-app/.env
+ExecStart=/home/ubuntu/recipe-app/venv/bin/gunicorn \
+    --workers 2 \
+    --bind 127.0.0.1:8000 \
+    --timeout 120 \
+    --access-logfile /var/log/recipe-app/access.log \
+    --error-logfile /var/log/recipe-app/error.log \
+    app:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
