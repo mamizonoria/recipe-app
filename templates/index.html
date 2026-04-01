@@ -15,13 +15,11 @@
         h1 { color: #e67e22; margin-bottom: 20px; }
 
         /* 検索・絞り込み */
-        .search-box { display: flex; gap: 8px; margin-bottom: 12px; }
-        .search-box input { flex: 1; padding: 8px 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 6px; }
-        .search-box button { padding: 8px 16px; background: #e67e22; color: white; border: none; border-radius: 6px; cursor: pointer; }
-        .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
-        .filter-bar a { font-size: 13px; padding: 4px 12px; border-radius: 20px; text-decoration: none; background: #f0f0f0; color: #555; border: 1px solid #ddd; }
-        .filter-bar a.active { background: #e67e22; color: white; border-color: #e67e22; }
-        .filter-bar span { font-size: 13px; color: #aaa; }
+        .search-bar { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+        .search-bar input[type=text] { flex: 1; min-width: 160px; padding: 9px 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 6px; }
+        .search-bar select { padding: 9px 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 6px; background: white; color: #333; min-width: 140px; }
+        .search-bar button { padding: 9px 18px; background: #e67e22; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; white-space: nowrap; }
+        .search-bar .clear-btn { font-size: 13px; color: #aaa; text-decoration: none; padding: 6px 4px; white-space: nowrap; }
 
         .cat-list { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
         .cat-item { display: flex; align-items: center; gap: 4px; background: #fff3e0; border-radius: 6px; padding: 4px 10px; }
@@ -190,30 +188,25 @@
         <a href="/calendar" style="font-size:14px; color:#e67e22; text-decoration:none; padding:8px 16px; border:1px solid #e67e22; border-radius:6px;">📅 カレンダー</a>
     </div>
 
-    <!-- 検索 -->
-    <form class="search-box" method="get">
-        {% if category %}<input type="hidden" name="cat" value="{{ category }}">{% endif %}
+    <!-- 検索・カテゴリー絞り込み -->
+    <form class="search-bar" method="get" id="search-form">
         <input type="text" name="q" placeholder="レシピ名・材料・タグで検索..." value="{{ keyword }}">
+        <select name="cat" onchange="this.form.submit()">
+            <option value="">すべてのカテゴリー</option>
+            {% for cat in categories %}
+            <option value="{{ cat }}" {{ 'selected' if category == cat }}>{{ cat }}</option>
+            {% endfor %}
+        </select>
         <button type="submit">検索</button>
         {% if keyword or category or tag %}
-        <a href="/" style="padding:8px;color:#888;text-decoration:none;">クリア</a>
+        <a href="/" class="clear-btn">✕ クリア</a>
         {% endif %}
     </form>
 
-    <!-- カテゴリー絞り込み -->
-    {% if categories %}
-    <div class="filter-bar">
-        <span>カテゴリー：</span>
-        <a href="/?q={{ keyword }}" class="{{ 'active' if not category }}">すべて</a>
-        {% for cat in categories %}
-        <a href="/?cat={{ cat }}&q={{ keyword }}" class="{{ 'active' if category == cat }}">{{ cat }}</a>
-        {% endfor %}
-    </div>
-    {% endif %}
-
     {% if tag %}
-    <div style="margin-bottom:12px;font-size:14px;color:#555;">
+    <div style="margin-bottom:12px;font-size:14px;color:#555;display:flex;align-items:center;gap:8px;">
         タグ「<strong>{{ tag }}</strong>」で絞り込み中
+        <a href="/?q={{ keyword }}{% if category %}&cat={{ category }}{% endif %}" style="font-size:12px;color:#aaa;text-decoration:none;">✕ 解除</a>
     </div>
     {% endif %}
 
