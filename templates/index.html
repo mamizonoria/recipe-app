@@ -15,11 +15,12 @@
         h1 { color: #e67e22; margin-bottom: 20px; }
 
         /* 検索・絞り込み */
-        .search-bar { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
-        .search-bar input[type=text] { flex: 1; min-width: 160px; padding: 9px 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 6px; }
-        .search-bar select { padding: 9px 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 6px; background: white; color: #333; min-width: 140px; }
-        .search-bar button { padding: 9px 18px; background: #e67e22; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; white-space: nowrap; }
-        .search-bar .clear-btn { font-size: 13px; color: #aaa; text-decoration: none; padding: 6px 4px; white-space: nowrap; }
+        .search-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+        .search-row input[type=text] { flex: 1; padding: 9px 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 6px; }
+        .search-row button { padding: 9px 18px; background: #e67e22; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; white-space: nowrap; }
+        .filter-row { display: flex; gap: 8px; margin-bottom: 20px; align-items: center; }
+        .filter-row select { flex: 1; padding: 9px 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 6px; background: white; color: #333; }
+        .clear-btn { font-size: 13px; color: #aaa; text-decoration: none; padding: 6px 4px; white-space: nowrap; }
 
         .cat-list { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
         .cat-item { display: flex; align-items: center; gap: 4px; background: #fff3e0; border-radius: 6px; padding: 4px 10px; }
@@ -189,18 +190,22 @@
     </div>
 
     <!-- 検索・カテゴリー絞り込み -->
-    <form class="search-bar" method="get" id="search-form">
-        <input type="text" name="q" placeholder="レシピ名・材料・タグで検索..." value="{{ keyword }}">
-        <select name="cat" onchange="this.form.submit()">
-            <option value="">すべてのカテゴリー</option>
-            {% for cat in categories %}
-            <option value="{{ cat }}" {{ 'selected' if category == cat }}>{{ cat }}</option>
-            {% endfor %}
-        </select>
-        <button type="submit">検索</button>
-        {% if keyword or category or tag %}
-        <a href="/" class="clear-btn">✕ クリア</a>
-        {% endif %}
+    <form method="get" id="search-form">
+        <div class="search-row">
+            <input type="text" name="q" placeholder="レシピ名・材料・タグで検索..." value="{{ keyword }}">
+            <button type="submit">検索</button>
+            {% if keyword or category or tag %}
+            <a href="/" class="clear-btn">✕ クリア</a>
+            {% endif %}
+        </div>
+        <div class="filter-row">
+            <select name="cat" onchange="this.form.submit()">
+                <option value="">すべてのカテゴリー</option>
+                {% for cat in categories %}
+                <option value="{{ cat }}" {{ 'selected' if category == cat }}>{{ cat }}</option>
+                {% endfor %}
+            </select>
+        </div>
     </form>
 
     {% if tag %}
