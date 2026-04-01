@@ -176,7 +176,7 @@
     <div class="detail-panel" id="detail">
         <div class="detail-header">
             <h2>📋 {{ selected_date_label }}</h2>
-            <a class="close-link" href="/calendar?year={{ year }}&month={{ month }}">✕ 閉じる</a>
+            <a class="close-link" href="/calendar?year={{ year }}&month={{ month }}&date={{ today }}">✕ 閉じる</a>
         </div>
 
         {% for meal_type, icon in [('朝食', '🌅'), ('昼食', '☀️'), ('夕食', '🌙')] %}

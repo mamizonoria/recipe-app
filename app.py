@@ -498,7 +498,7 @@ def calendar_view():
     today         = date.today()
     year          = int(request.args.get("year",  today.year))
     month         = int(request.args.get("month", today.month))
-    selected_date = request.args.get("date", "")
+    selected_date = request.args.get("date", today.strftime("%Y-%m-%d"))
 
     conn = get_conn()
     cur  = conn.cursor()
