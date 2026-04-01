@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, jsonify
+from flask import Flask, render_template, request, redirect, jsonify, url_for, session
 import re
 import json
 import os
@@ -10,6 +10,8 @@ import psycopg2.pool
 import cloudinary
 import cloudinary.uploader
 import anthropic
+from authlib.integrations.flask_client import OAuth
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from dotenv import load_dotenv
 import calendar as cal_module
 from datetime import date
@@ -18,6 +20,35 @@ load_dotenv()
 
 app = Flask(__name__)
 app.jinja_env.filters["enumerate"] = enumerate
+app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key")
+app.config["SESSION_COOKIE_SECURE"] = True
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["REMEMBER_COOKIE_DURATION"] = 60 * 60 * 24 * 30  # 30日
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = "login"
+
+ALLOWED_EMAIL = os.environ.get("ALLOWED_EMAIL", "")
+
+class User(UserMixin):
+    def __init__(self, email):
+        self.id = email
+
+@login_manager.user_loader
+def load_user(user_id):
+    if user_id == ALLOWED_EMAIL:
+        return User(user_id)
+    return None
+
+oauth = OAuth(app)
+google = oauth.register(
+    name="google",
+    client_id=os.environ.get("GOOGLE_CLIENT_ID"),
+    client_secret=os.environ.get("GOOGLE_CLIENT_SECRET"),
+    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+    client_kwargs={"scope": "openid email profile"},
+)
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "webp"}
@@ -254,6 +285,7 @@ def fetch_recipe(url):
     return result
 
 @app.route("/")
+@login_required
 def index():
     keyword  = request.args.get("q", "")
     category = request.args.get("cat", "")
@@ -284,6 +316,7 @@ def index():
                            all_tags=get_all_tags())
 
 @app.route("/recipe/<int:recipe_id>")
+@login_required
 def recipe_detail(recipe_id):
     conn = get_conn()
     cur = conn.cursor()
@@ -297,7 +330,35 @@ def recipe_detail(recipe_id):
         return "レシピが見つかりません", 404
     return render_template("recipe.html", recipe=recipe, categories=get_categories(), last_cooked=last_cooked)
 
+@app.route("/login")
+def login():
+    if current_user.is_authenticated:
+        return redirect("/")
+    return render_template("login.html")
+
+@app.route("/login/google")
+def login_google():
+    redirect_uri = url_for("auth_callback", _external=True)
+    return google.authorize_redirect(redirect_uri)
+
+@app.route("/auth/callback")
+def auth_callback():
+    token = google.authorize_access_token()
+    user_info = token.get("userinfo")
+    email = user_info.get("email", "")
+    if email == ALLOWED_EMAIL:
+        login_user(User(email), remember=True)
+        return redirect("/")
+    return "アクセスが許可されていません", 403
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    return redirect("/login")
+
 @app.route("/extract-from-images", methods=["POST"])
+@login_required
 def extract_from_images():
     files = request.files.getlist("photos")
     files = [f for f in files if f and f.filename and allowed_file(f.filename)]
@@ -342,6 +403,7 @@ def extract_from_images():
 
 
 @app.route("/fetch-preview")
+@login_required
 def fetch_preview():
     url = request.args.get("url", "").strip()
     if not url:
@@ -350,6 +412,7 @@ def fetch_preview():
     return jsonify({"title": info["title"]})
 
 @app.route("/add", methods=["POST"])
+@login_required
 def add():
     url            = request.form.get("url", "").strip()
     title_override = request.form.get("title_override", "").strip()
@@ -377,6 +440,7 @@ def add():
     return redirect("/")
 
 @app.route("/add-manual", methods=["POST"])
+@login_required
 def add_manual():
     title       = request.form.get("title", "").strip()
     url         = request.form.get("url", "").strip()
@@ -402,6 +466,7 @@ def add_manual():
     return redirect("/")
 
 @app.route("/recipe/<int:recipe_id>/update", methods=["GET", "POST"])
+@login_required
 def update(recipe_id):
     if request.method == "GET":
         return redirect(f"/recipe/{recipe_id}")
@@ -430,6 +495,7 @@ def update(recipe_id):
     return redirect(f"/recipe/{recipe_id}")
 
 @app.route("/recipe/<int:recipe_id>/update-lines", methods=["POST"])
+@login_required
 def update_lines(recipe_id):
     field = request.form.get("field")
     value = request.form.get("value", "")
@@ -444,6 +510,7 @@ def update_lines(recipe_id):
     return jsonify({"ok": True})
 
 @app.route("/fix-steps/<int:recipe_id>", methods=["POST"])
+@login_required
 def fix_steps(recipe_id):
     conn = get_conn()
     cur = conn.cursor()
@@ -458,6 +525,7 @@ def fix_steps(recipe_id):
     return redirect(f"/recipe/{recipe_id}")
 
 @app.route("/categories/add", methods=["POST"])
+@login_required
 def category_add():
     name = request.form.get("name", "").strip()
     if name:
@@ -470,6 +538,7 @@ def category_add():
     return redirect("/")
 
 @app.route("/categories/delete", methods=["POST"])
+@login_required
 def category_delete():
     name = request.form.get("name", "").strip()
     if name:
@@ -482,6 +551,7 @@ def category_delete():
     return redirect("/")
 
 @app.route("/tags/delete", methods=["POST"])
+@login_required
 def tag_delete():
     name = request.form.get("name", "").strip()
     if name:
@@ -500,6 +570,7 @@ def tag_delete():
     return redirect("/")
 
 @app.route("/bulk-update", methods=["POST"])
+@login_required
 def bulk_update():
     ids      = request.form.getlist("ids")
     category = request.form.get("category", "").strip()
@@ -528,6 +599,7 @@ def bulk_update():
     return redirect("/")
 
 @app.route("/delete/<int:recipe_id>", methods=["POST"])
+@login_required
 def delete(recipe_id):
     conn = get_conn()
     cur = conn.cursor()
@@ -538,6 +610,7 @@ def delete(recipe_id):
     return redirect("/")
 
 @app.route("/calendar")
+@login_required
 def calendar_view():
     from datetime import datetime as dt
     today         = date.today()
@@ -601,6 +674,7 @@ def calendar_view():
     )
 
 @app.route("/calendar/add", methods=["POST"])
+@login_required
 def calendar_add():
     date_str    = request.form.get("date", "").strip()
     recipe_id   = request.form.get("recipe_id", "").strip() or None
@@ -622,6 +696,7 @@ def calendar_add():
     return redirect(f"/calendar?year={year}&month={month}&date={date_str}#detail")
 
 @app.route("/recipe/<int:recipe_id>/add-to-today", methods=["POST"])
+@login_required
 def add_to_today(recipe_id):
     from datetime import date as date_cls
     meal_type = request.json.get("meal_type", "夕食")
@@ -638,6 +713,7 @@ def add_to_today(recipe_id):
     return {"ok": True, "date": date_str}
 
 @app.route("/calendar/delete/<int:record_id>", methods=["POST"])
+@login_required
 def calendar_delete(record_id):
     year      = request.form.get("year", "")
     month     = request.form.get("month", "")
