@@ -2,12 +2,14 @@ from flask import Flask, render_template, request, redirect, jsonify
 import re
 import json
 import os
+import base64
 import requests
 from bs4 import BeautifulSoup
 import psycopg2
 import psycopg2.pool
 import cloudinary
 import cloudinary.uploader
+import anthropic
 from dotenv import load_dotenv
 import calendar as cal_module
 from datetime import date
@@ -26,6 +28,8 @@ cloudinary.config(
     api_secret=os.environ.get("CLOUDINARY_API_SECRET"),
     secure=True
 )
+
+anthropic_client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
 COLS = "id, title, url, ingredients, steps, image_url, memo, created_at, category, tags"
 
@@ -277,6 +281,50 @@ def recipe_detail(recipe_id):
     if not recipe:
         return "レシピが見つかりません", 404
     return render_template("recipe.html", recipe=recipe, categories=get_categories(), last_cooked=last_cooked)
+
+@app.route("/extract-from-images", methods=["POST"])
+def extract_from_images():
+    files = request.files.getlist("photos")
+    files = [f for f in files if f and f.filename and allowed_file(f.filename)]
+    if not files:
+        return jsonify({"error": "画像が選択されていません"}), 400
+
+    content = []
+    for f in files:
+        data = base64.standard_b64encode(f.read()).decode("utf-8")
+        mime = f.content_type or "image/jpeg"
+        content.append({
+            "type": "image",
+            "source": {"type": "base64", "media_type": mime, "data": data}
+        })
+
+    content.append({
+        "type": "text",
+        "text": (
+            "これらはレシピの画像です。複数枚ある場合は同じレシピの続きとして扱ってください。"
+            "画像から料理名・材料・作り方を読み取り、必ず以下のJSON形式だけで返してください。"
+            "余分な説明は不要です。\n"
+            '{"title":"料理名","ingredients":"材料1\\n材料2\\n...","steps":"手順1\\n手順2\\n..."}'
+        )
+    })
+
+    try:
+        res = anthropic_client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=2000,
+            messages=[{"role": "user", "content": content}]
+        )
+        text = res.content[0].text.strip()
+        # JSON部分だけ抽出
+        m = re.search(r'\{.*\}', text, re.DOTALL)
+        if not m:
+            return jsonify({"error": "読み取り結果を解析できませんでした"}), 500
+        result = json.loads(m.group())
+        return jsonify(result)
+    except Exception as e:
+        app.logger.error(f"extract_from_images error: {e}")
+        return jsonify({"error": "読み取りに失敗しました"}), 500
+
 
 @app.route("/fetch-preview")
 def fetch_preview():

@@ -180,6 +180,7 @@
         <div class="tab-bar">
             <button class="tab-btn active" onclick="switchTab('url', this)">🔗 URLから登録</button>
             <button class="tab-btn" onclick="switchTab('manual', this)">✏️ 手入力で登録</button>
+            <button class="tab-btn" onclick="switchTab('image', this)">📷 画像から登録</button>
         </div>
 
         <!-- URLから登録 -->
@@ -254,6 +255,52 @@
                 <label>メモ（任意）</label>
                 <input type="text" name="memo" placeholder="アレンジや感想など">
                 <label>写真（任意・JPG・PNG・GIF・WebP）</label>
+                <input type="file" name="photo" accept="image/*" style="margin-bottom:16px;">
+                <br>
+                <button class="btn-green" type="submit">保存する</button>
+            </form>
+        </div>
+    </div>
+
+        <!-- 画像から登録 -->
+        <div class="tab-pane" id="tab-image">
+            <div style="margin-bottom:14px;">
+                <label>レシピの画像を選択（複数枚OK・材料ページ・手順ページなどまとめて選択）</label>
+                <input type="file" id="recipe-photos" accept="image/*" multiple style="margin-bottom:12px;">
+                <div id="photo-previews" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div>
+                <button class="btn-orange" type="button" onclick="extractFromImages()" id="extract-btn">AIで読み取る</button>
+                <span id="extract-loading" style="display:none;color:#888;font-size:14px;margin-left:12px;">読み取り中...</span>
+                <div id="extract-error" style="display:none;color:#e74c3c;font-size:14px;margin-top:8px;"></div>
+            </div>
+            <form method="post" action="/add-manual" enctype="multipart/form-data" id="image-form">
+                <label>料理名 <span style="color:#e74c3c">*</span></label>
+                <input type="text" name="title" id="img-title" placeholder="AIが自動入力します" required>
+                <div class="two-col">
+                    <div>
+                        <label>材料</label>
+                        <textarea name="ingredients" id="img-ingredients" placeholder="AIが自動入力します"></textarea>
+                    </div>
+                    <div>
+                        <label>作り方</label>
+                        <textarea name="steps" id="img-steps" placeholder="AIが自動入力します"></textarea>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div>
+                        <label>カテゴリー</label>
+                        <input type="text" name="category" placeholder="カテゴリーを選択または入力" list="category-list-image">
+                        <datalist id="category-list-image">
+                            {% for cat in categories %}<option value="{{ cat }}">{% endfor %}
+                        </datalist>
+                    </div>
+                    <div>
+                        <label>タグ（カンマ区切りで複数可）</label>
+                        <input type="text" name="tags" placeholder="時短, 節約, 子供向け">
+                    </div>
+                </div>
+                <label>メモ（任意）</label>
+                <input type="text" name="memo" placeholder="アレンジや感想など">
+                <label>料理写真（任意）</label>
                 <input type="file" name="photo" accept="image/*" style="margin-bottom:16px;">
                 <br>
                 <button class="btn-green" type="submit">保存する</button>
@@ -443,6 +490,52 @@
                 inp.value = c.id.replace("chk-", "");
                 hiddenIds.appendChild(inp);
             });
+        }
+
+        // 画像プレビュー表示
+        document.getElementById("recipe-photos").addEventListener("change", function() {
+            const preview = document.getElementById("photo-previews");
+            preview.innerHTML = "";
+            Array.from(this.files).forEach(file => {
+                const img = document.createElement("img");
+                img.src = URL.createObjectURL(file);
+                img.style = "height:80px;border-radius:6px;object-fit:cover;border:1px solid #ddd;";
+                preview.appendChild(img);
+            });
+        });
+
+        async function extractFromImages() {
+            const input = document.getElementById("recipe-photos");
+            if (!input.files.length) { alert("画像を選択してください"); return; }
+
+            const btn = document.getElementById("extract-btn");
+            const loading = document.getElementById("extract-loading");
+            const errEl = document.getElementById("extract-error");
+            btn.disabled = true;
+            loading.style.display = "inline";
+            errEl.style.display = "none";
+
+            const formData = new FormData();
+            Array.from(input.files).forEach(f => formData.append("photos", f));
+
+            try {
+                const res = await fetch("/extract-from-images", { method: "POST", body: formData });
+                const data = await res.json();
+                if (data.error) {
+                    errEl.textContent = data.error;
+                    errEl.style.display = "block";
+                    return;
+                }
+                document.getElementById("img-title").value = data.title || "";
+                document.getElementById("img-ingredients").value = data.ingredients || "";
+                document.getElementById("img-steps").value = data.steps || "";
+            } catch(e) {
+                errEl.textContent = "通信エラーが発生しました";
+                errEl.style.display = "block";
+            } finally {
+                btn.disabled = false;
+                loading.style.display = "none";
+            }
         }
 
         function validateBulk() {
