@@ -92,11 +92,15 @@
         body.select-mode .recipe-card.selected { outline: 3px solid #e67e22; }
 
         /* 一括操作パネル（インライン表示） */
-        .bulk-panel { display: none; background: #2c3e50; color: white; border-radius: 10px; padding: 16px 20px; margin-bottom: 16px; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .bulk-panel { display: none; background: #2c3e50; color: white; border-radius: 10px; padding: 14px 20px; margin-bottom: 16px; flex-direction: column; gap: 10px; }
         .bulk-panel.show { display: flex; }
+        .bulk-panel .bulk-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .bulk-panel .count { font-size: 14px; flex: 1; min-width: 80px; }
-        .bulk-panel select { padding: 8px 12px; border-radius: 6px; border: none; font-size: 14px; min-width: 160px; background: white; color: #333; }
-        .bulk-panel button { padding: 8px 18px; border-radius: 6px; border: none; font-size: 14px; cursor: pointer; }
+        .bulk-panel .bulk-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .bulk-panel .bulk-label { font-size: 12px; color: #bdc3c7; white-space: nowrap; min-width: 60px; }
+        .bulk-panel select { padding: 7px 10px; border-radius: 6px; border: none; font-size: 14px; min-width: 160px; background: white; color: #333; }
+        .bulk-panel input[type=text] { padding: 7px 10px; border-radius: 6px; border: none; font-size: 14px; min-width: 160px; background: white; color: #333; }
+        .bulk-panel button { padding: 7px 16px; border-radius: 6px; border: none; font-size: 14px; cursor: pointer; }
         .bulk-panel .apply-btn { background: #e67e22; color: white; }
         .bulk-panel .apply-btn:hover { background: #cf6d17; }
         .bulk-panel .cancel-btn { background: #ecf0f1; color: #333; }
@@ -313,17 +317,28 @@
     <!-- 一括操作パネル（インライン） -->
     <form id="bulk-form" method="post" action="/bulk-update">
         <div class="bulk-panel" id="bulk-panel">
-            <div class="count" id="bulk-count">0件選択中</div>
-            <select name="category">
-                <option value="" disabled selected>▼ カテゴリーを選ぶ</option>
-                {% for cat in categories %}
-                <option value="{{ cat }}">{{ cat }}</option>
-                {% endfor %}
-            </select>
+            <div class="bulk-top">
+                <div class="count" id="bulk-count">0件選択中</div>
+                <button type="button" class="cancel-btn" onclick="exitSelectMode()">キャンセル</button>
+            </div>
+            <div class="bulk-row">
+                <span class="bulk-label">カテゴリー</span>
+                <select name="category">
+                    <option value="">▼ 選ぶ</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat }}">{{ cat }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="bulk-row">
+                <span class="bulk-label">タグを追加</span>
+                <input type="text" name="bulk_tag" placeholder="タグ名を入力または選択" list="bulk-tag-list" autocomplete="off">
+                <datalist id="bulk-tag-list">
+                    {% for t in all_tags %}<option value="{{ t }}">{% endfor %}
+                </datalist>
+            </div>
             <div id="hidden-ids"></div>
-            <button type="submit" class="apply-btn"
-                    onclick="return validateBulk()">一括登録する</button>
-            <button type="button" class="cancel-btn" onclick="exitSelectMode()">キャンセル</button>
+            <button type="submit" class="apply-btn" onclick="return validateBulk()">一括適用する</button>
         </div>
     </form>
     {% endif %}
@@ -538,9 +553,10 @@
 
         function validateBulk() {
             const checked  = document.querySelectorAll(".recipe-card input[type=checkbox]:checked");
-            const sel      = document.querySelector("#bulk-panel select");
+            const cat      = document.querySelector("#bulk-panel select").value;
+            const tag      = document.querySelector("#bulk-panel input[name=bulk_tag]").value.trim();
             if (checked.length === 0) { alert("レシピを1件以上選択してください。"); return false; }
-            if (!sel.value)           { alert("カテゴリーを選んでください。"); return false; }
+            if (!cat && !tag)         { alert("カテゴリーまたはタグを入力してください。"); return false; }
             return true;
         }
     </script>

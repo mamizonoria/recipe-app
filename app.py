@@ -166,6 +166,20 @@ def get_categories():
     conn.close()
     return cats
 
+def get_all_tags():
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT tags FROM recipes WHERE tags != ''")
+    tag_set = set()
+    for (tags_str,) in cur.fetchall():
+        for t in tags_str.split(","):
+            t = t.strip()
+            if t:
+                tag_set.add(t)
+    cur.close()
+    conn.close()
+    return sorted(tag_set)
+
 def parse_manual_recipe(text):
     if not text:
         return "", ""
@@ -266,7 +280,8 @@ def index():
     cur.close()
     conn.close()
     return render_template("index.html", recipes=recipes, keyword=keyword,
-                           category=category, tag=tag, categories=get_categories())
+                           category=category, tag=tag, categories=get_categories(),
+                           all_tags=get_all_tags())
 
 @app.route("/recipe/<int:recipe_id>")
 def recipe_detail(recipe_id):
@@ -470,16 +485,28 @@ def category_delete():
 def bulk_update():
     ids      = request.form.getlist("ids")
     category = request.form.get("category", "").strip()
-    if ids and category:
-        conn = get_conn()
-        cur = conn.cursor()
+    bulk_tag = request.form.get("bulk_tag", "").strip()
+    if not ids:
+        return redirect("/")
+    conn = get_conn()
+    cur = conn.cursor()
+    if category:
         cur.executemany(
             "UPDATE recipes SET category = %s WHERE id = %s",
             [(category, id_) for id_ in ids]
         )
-        conn.commit()
-        cur.close()
-        conn.close()
+    if bulk_tag:
+        for id_ in ids:
+            cur.execute("SELECT tags FROM recipes WHERE id = %s", (id_,))
+            row = cur.fetchone()
+            existing_tags = [t.strip() for t in (row[0] or "").split(",") if t.strip()]
+            if bulk_tag not in existing_tags:
+                existing_tags.append(bulk_tag)
+            cur.execute("UPDATE recipes SET tags = %s WHERE id = %s",
+                        (", ".join(existing_tags), id_))
+    conn.commit()
+    cur.close()
+    conn.close()
     return redirect("/")
 
 @app.route("/delete/<int:recipe_id>", methods=["POST"])
