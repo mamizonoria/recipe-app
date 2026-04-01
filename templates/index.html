@@ -260,19 +260,17 @@
                 <button class="btn-green" type="submit">保存する</button>
             </form>
         </div>
-    </div>
 
         <!-- 画像から登録 -->
         <div class="tab-pane" id="tab-image">
-            <div style="margin-bottom:14px;">
+            <form method="post" action="/add-manual" enctype="multipart/form-data">
                 <label>レシピの画像を選択（複数枚OK・材料ページ・手順ページなどまとめて選択）</label>
-                <input type="file" id="recipe-photos" accept="image/*" multiple style="margin-bottom:12px;">
+                <input type="file" id="recipe-photos" accept="image/*" multiple style="margin-bottom:8px;">
                 <div id="photo-previews" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div>
                 <button class="btn-orange" type="button" onclick="extractFromImages()" id="extract-btn">AIで読み取る</button>
                 <span id="extract-loading" style="display:none;color:#888;font-size:14px;margin-left:12px;">読み取り中...</span>
-                <div id="extract-error" style="display:none;color:#e74c3c;font-size:14px;margin-top:8px;"></div>
-            </div>
-            <form method="post" action="/add-manual" enctype="multipart/form-data" id="image-form">
+                <div id="extract-error" style="display:none;color:#e74c3c;font-size:14px;margin-top:8px;margin-bottom:4px;"></div>
+
                 <label>料理名 <span style="color:#e74c3c">*</span></label>
                 <input type="text" name="title" id="img-title" placeholder="AIが自動入力します" required>
                 <div class="two-col">
