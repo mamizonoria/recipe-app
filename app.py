@@ -481,6 +481,24 @@ def category_delete():
         conn.close()
     return redirect("/")
 
+@app.route("/tags/delete", methods=["POST"])
+def tag_delete():
+    name = request.form.get("name", "").strip()
+    if name:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT id, tags FROM recipes WHERE tags != ''")
+        for recipe_id, tags_str in cur.fetchall():
+            tags = [t.strip() for t in tags_str.split(",") if t.strip()]
+            if name in tags:
+                tags.remove(name)
+                cur.execute("UPDATE recipes SET tags = %s WHERE id = %s",
+                            (", ".join(tags), recipe_id))
+        conn.commit()
+        cur.close()
+        conn.close()
+    return redirect("/")
+
 @app.route("/bulk-update", methods=["POST"])
 def bulk_update():
     ids      = request.form.getlist("ids")

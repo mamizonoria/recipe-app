@@ -23,13 +23,6 @@
         .filter-bar a.active { background: #e67e22; color: white; border-color: #e67e22; }
         .filter-bar span { font-size: 13px; color: #aaa; }
 
-        /* カテゴリー管理 */
-        .cat-manage { background: white; border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .cat-manage-header { padding: 14px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; }
-        .cat-manage-header:hover { background: #fafafa; border-radius: 10px; }
-        .cat-manage-header h3 { margin: 0; font-size: 15px; color: #555; }
-        .cat-manage-body { display: none; padding: 0 20px 20px; border-top: 1px solid #f0f0f0; }
-        .cat-manage-body.open { display: block; }
         .cat-list { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
         .cat-item { display: flex; align-items: center; gap: 4px; background: #fff3e0; border-radius: 6px; padding: 4px 10px; }
         .cat-item span { font-size: 14px; color: #e65100; }
@@ -49,6 +42,21 @@
         .tab-pane.active { display: block; }
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
+
+        /* サイドメニュー */
+        .menu-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; }
+        .menu-overlay.open { display: block; }
+        .side-menu { position: fixed; top: 0; left: -320px; width: 300px; height: 100%; background: white; z-index: 201; box-shadow: 4px 0 16px rgba(0,0,0,0.15); transition: left 0.25s ease; overflow-y: auto; }
+        .side-menu.open { left: 0; }
+        .side-menu-header { background: #e67e22; color: white; padding: 20px; display: flex; align-items: center; justify-content: space-between; }
+        .side-menu-header h2 { margin: 0; font-size: 16px; }
+        .side-menu-close { background: none; border: none; color: white; font-size: 22px; cursor: pointer; line-height: 1; padding: 0; }
+        .side-menu-section { padding: 20px; border-bottom: 1px solid #f0f0f0; }
+        .side-menu-section h3 { margin: 0 0 14px; font-size: 14px; color: #555; }
+        .side-tag-list { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+        .side-tag-item { display: flex; align-items: center; gap: 3px; background: #e3f2fd; border-radius: 6px; padding: 3px 8px; }
+        .side-tag-item span { font-size: 13px; color: #1565c0; }
+        .hamburger { background: none; border: none; font-size: 22px; cursor: pointer; padding: 4px 8px; color: #e67e22; line-height: 1; }
 
         /* ズーム防止（iOS Safari は16px未満でズームする） */
         input, textarea, select { font-size: 16px; }
@@ -117,9 +125,65 @@
         {% endif %}
     </div>
     {% endif %}
+    <!-- サイドメニューオーバーレイ -->
+    <div class="menu-overlay" id="menu-overlay" onclick="closeMenu()"></div>
+    <div class="side-menu" id="side-menu">
+        <div class="side-menu-header">
+            <h2>管理メニュー</h2>
+            <button class="side-menu-close" onclick="closeMenu()">✕</button>
+        </div>
+        <!-- カテゴリー管理 -->
+        <div class="side-menu-section">
+            <h3>🗂 カテゴリーを管理する</h3>
+            {% if categories %}
+            <div class="cat-list">
+                {% for cat in categories %}
+                <div class="cat-item">
+                    <span>{{ cat }}</span>
+                    <form method="post" action="/categories/delete"
+                          onsubmit="return confirm('「{{ cat }}」を削除しますか？\n※このカテゴリーが設定されたレシピには影響しません。')">
+                        <input type="hidden" name="name" value="{{ cat }}">
+                        <button class="cat-delete-btn" type="submit">✕</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="cat-empty">カテゴリーがありません。</p>
+            {% endif %}
+            <form class="cat-add-form" method="post" action="/categories/add">
+                <input type="text" name="name" placeholder="新しいカテゴリー名" required>
+                <button type="submit">追加</button>
+            </form>
+        </div>
+        <!-- タグ管理 -->
+        <div class="side-menu-section">
+            <h3>🏷 タグを管理する</h3>
+            {% if all_tags %}
+            <div class="side-tag-list">
+                {% for t in all_tags %}
+                <div class="side-tag-item">
+                    <span>{{ t }}</span>
+                    <form method="post" action="/tags/delete" style="margin:0;"
+                          onsubmit="return confirm('タグ「{{ t }}」を全レシピから削除しますか？')">
+                        <input type="hidden" name="name" value="{{ t }}">
+                        <button class="cat-delete-btn" type="submit">✕</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="cat-empty">タグがありません。</p>
+            {% endif %}
+        </div>
+    </div>
+
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
-        <h1 style="margin:0;">🍳 レシピ帳</h1>
-        <a href="/calendar" style="font-size:14px; color:#e67e22; text-decoration:none; padding:8px 16px; border:1px solid #e67e22; border-radius:6px;">📅 料理カレンダー</a>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <button class="hamburger" onclick="openMenu()">☰</button>
+            <h1 style="margin:0;">🍳 レシピ帳</h1>
+        </div>
+        <a href="/calendar" style="font-size:14px; color:#e67e22; text-decoration:none; padding:8px 16px; border:1px solid #e67e22; border-radius:6px;">📅 カレンダー</a>
     </div>
 
     <!-- 検索 -->
@@ -148,36 +212,6 @@
         タグ「<strong>{{ tag }}</strong>」で絞り込み中
     </div>
     {% endif %}
-
-    <!-- カテゴリー管理 -->
-    <div class="cat-manage">
-        <div class="cat-manage-header" onclick="toggleCatManage()">
-            <h3>🗂 カテゴリーを管理する</h3>
-            <span id="cat-arrow">▼</span>
-        </div>
-        <div class="cat-manage-body" id="cat-manage-body">
-            {% if categories %}
-            <div class="cat-list">
-                {% for cat in categories %}
-                <div class="cat-item">
-                    <span>{{ cat }}</span>
-                    <form method="post" action="/categories/delete"
-                          onsubmit="return confirm('「{{ cat }}」を削除しますか？\n※このカテゴリーが設定されたレシピには影響しません。')">
-                        <input type="hidden" name="name" value="{{ cat }}">
-                        <button class="cat-delete-btn" type="submit">✕</button>
-                    </form>
-                </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            <p class="cat-empty">カテゴリーがありません。下から追加してください。</p>
-            {% endif %}
-            <form class="cat-add-form" method="post" action="/categories/add">
-                <input type="text" name="name" placeholder="新しいカテゴリー名を入力" required>
-                <button type="submit">追加</button>
-            </form>
-        </div>
-    </div>
 
     <!-- レシピ追加フォーム（タブ切り替え） -->
     <div class="add-form">
@@ -392,6 +426,15 @@
     {% endif %}
 
     <script>
+        function openMenu() {
+            document.getElementById("side-menu").classList.add("open");
+            document.getElementById("menu-overlay").classList.add("open");
+        }
+        function closeMenu() {
+            document.getElementById("side-menu").classList.remove("open");
+            document.getElementById("menu-overlay").classList.remove("open");
+        }
+
         function showLoading() {
             document.getElementById("loading").style.display = "inline";
         }
@@ -449,13 +492,6 @@
                 alert("材料・手順のヘッダー（【材料】【作り方】など）が見つかりませんでした。\n下の欄に直接入力してください。");
             }
         }
-        function toggleCatManage() {
-            const body  = document.getElementById("cat-manage-body");
-            const arrow = document.getElementById("cat-arrow");
-            const open  = body.classList.toggle("open");
-            arrow.textContent = open ? "▲" : "▼";
-        }
-
         function toggleSelectMode() {
             const active = document.body.classList.toggle("select-mode");
             const btn   = document.getElementById("select-toggle");
