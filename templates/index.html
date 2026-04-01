@@ -593,6 +593,16 @@
             const tag      = document.querySelector("#bulk-panel input[name=bulk_tag]").value.trim();
             if (checked.length === 0) { alert("レシピを1件以上選択してください。"); return false; }
             if (!cat && !tag)         { alert("カテゴリーまたはタグを入力してください。"); return false; }
+            // 送信直前にIDを再同期（チェックボックス直接クリック時の漏れを防ぐ）
+            const hiddenIds = document.getElementById("hidden-ids");
+            hiddenIds.innerHTML = "";
+            checked.forEach(c => {
+                const inp = document.createElement("input");
+                inp.type  = "hidden";
+                inp.name  = "ids";
+                inp.value = c.id.replace("chk-", "");
+                hiddenIds.appendChild(inp);
+            });
             return true;
         }
     </script>
