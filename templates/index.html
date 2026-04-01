@@ -312,7 +312,7 @@
 
     <!-- 選択モード切り替え -->
     {% if recipes %}
-    <button class="select-toggle" id="select-toggle" onclick="toggleSelectMode()">レシピを選択してカテゴリー一括登録</button>
+    <button class="select-toggle" id="select-toggle" onclick="toggleSelectMode()">レシピを選択して一括登録</button>
 
     <!-- 一括操作パネル（インライン） -->
     <form id="bulk-form" method="post" action="/bulk-update">
@@ -460,7 +460,7 @@
             const active = document.body.classList.toggle("select-mode");
             const btn   = document.getElementById("select-toggle");
             const panel = document.getElementById("bulk-panel");
-            btn.textContent = active ? "選択モードを終了" : "レシピを選択してカテゴリー一括登録";
+            btn.textContent = active ? "選択モードを終了" : "レシピを選択して一括登録";
             btn.classList.toggle("active", active);
             if (panel) panel.classList.toggle("show", active);
             if (!active) clearSelection();
