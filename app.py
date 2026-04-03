@@ -70,7 +70,11 @@ _pool = None
 def _get_pool():
     global _pool
     if _pool is None or _pool.closed:
-        _pool = psycopg2.pool.ThreadedConnectionPool(1, 5, DATABASE_URL)
+        _pool = psycopg2.pool.ThreadedConnectionPool(
+            1, 5, DATABASE_URL,
+            keepalives=1, keepalives_idle=60,
+            keepalives_interval=10, keepalives_count=5
+        )
     return _pool
 
 class _PooledConn:
@@ -89,8 +93,29 @@ class _PooledConn:
         return False
 
 def get_conn():
-    pool = _get_pool()
-    return _PooledConn(pool.getconn(), pool)
+    global _pool
+    for attempt in range(2):
+        try:
+            pool = _get_pool()
+            raw = pool.getconn()
+            # Neon が切断した古い接続を検出して弾く
+            try:
+                raw.cursor().execute("SELECT 1")
+            except Exception:
+                pool.putconn(raw, close=True)
+                raise
+            return _PooledConn(raw, pool)
+        except Exception:
+            if attempt == 0:
+                # プールをリセットして再試行
+                try:
+                    if _pool:
+                        _pool.closeall()
+                except Exception:
+                    pass
+                _pool = None
+            else:
+                raise
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
