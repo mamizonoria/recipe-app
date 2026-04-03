@@ -82,6 +82,11 @@ class _PooledConn:
         return getattr(self._conn, name)
     def close(self):
         self._pool.putconn(self._conn)
+    def __enter__(self):
+        return self
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
 
 def get_conn():
     pool = _get_pool()
@@ -105,68 +110,66 @@ def save_upload(file):
         return None
 
 def init_db():
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS recipes (
-            id SERIAL PRIMARY KEY,
-            title TEXT NOT NULL,
-            url TEXT DEFAULT '',
-            ingredients TEXT DEFAULT '',
-            steps TEXT DEFAULT '',
-            image_url TEXT DEFAULT '',
-            memo TEXT DEFAULT '',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            category TEXT DEFAULT '',
-            tags TEXT DEFAULT ''
-        )
-    """)
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS categories (
-            id SERIAL PRIMARY KEY,
-            name TEXT NOT NULL UNIQUE
-        )
-    """)
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS cooking_records (
-            id SERIAL PRIMARY KEY,
-            date DATE NOT NULL,
-            recipe_id INTEGER REFERENCES recipes(id) ON DELETE CASCADE,
-            custom_name TEXT DEFAULT '',
-            meal_type TEXT DEFAULT '夕食',
-            memo TEXT DEFAULT ''
-        )
-    """)
-    # 既存テーブルへのカラム追加（マイグレーション）
-    for col, defn in [("custom_name", "TEXT DEFAULT ''"), ("meal_type", "TEXT DEFAULT '夕食'")]:
-        cur.execute(
-            "SELECT 1 FROM information_schema.columns WHERE table_name='cooking_records' AND column_name=%s",
-            (col,)
-        )
-        if not cur.fetchone():
-            cur.execute(f"ALTER TABLE cooking_records ADD COLUMN {col} {defn}")
-    cur.execute("ALTER TABLE cooking_records ALTER COLUMN recipe_id DROP NOT NULL")
-    for name in ["主食", "副食"]:
-        cur.execute(
-            "INSERT INTO categories (name) VALUES (%s) ON CONFLICT (name) DO NOTHING",
-            (name,)
-        )
-    conn.commit()
-    cur.close()
-    conn.close()
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS recipes (
+                id SERIAL PRIMARY KEY,
+                title TEXT NOT NULL,
+                url TEXT DEFAULT '',
+                ingredients TEXT DEFAULT '',
+                steps TEXT DEFAULT '',
+                image_url TEXT DEFAULT '',
+                memo TEXT DEFAULT '',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                category TEXT DEFAULT '',
+                tags TEXT DEFAULT ''
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS categories (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL UNIQUE
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS cooking_records (
+                id SERIAL PRIMARY KEY,
+                date DATE NOT NULL,
+                recipe_id INTEGER REFERENCES recipes(id) ON DELETE CASCADE,
+                custom_name TEXT DEFAULT '',
+                meal_type TEXT DEFAULT '夕食',
+                memo TEXT DEFAULT ''
+            )
+        """)
+        # 既存テーブルへのカラム追加（マイグレーション）
+        for col, defn in [("custom_name", "TEXT DEFAULT ''"), ("meal_type", "TEXT DEFAULT '夕食'")]:
+            cur.execute(
+                "SELECT 1 FROM information_schema.columns WHERE table_name='cooking_records' AND column_name=%s",
+                (col,)
+            )
+            if not cur.fetchone():
+                cur.execute(f"ALTER TABLE cooking_records ADD COLUMN {col} {defn}")
+        cur.execute("ALTER TABLE cooking_records ALTER COLUMN recipe_id DROP NOT NULL")
+        for name in ["主食", "副食"]:
+            cur.execute(
+                "INSERT INTO categories (name) VALUES (%s) ON CONFLICT (name) DO NOTHING",
+                (name,)
+            )
+        conn.commit()
+        cur.close()
 
 def migrate_steps():
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("SELECT id, steps FROM recipes WHERE steps IS NOT NULL AND steps != ''")
-    rows = cur.fetchall()
-    for row in rows:
-        new_steps = "\n".join(split_steps(row[1]))
-        if new_steps != row[1]:
-            cur.execute("UPDATE recipes SET steps = %s WHERE id = %s", (new_steps, row[0]))
-    conn.commit()
-    cur.close()
-    conn.close()
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT id, steps FROM recipes WHERE steps IS NOT NULL AND steps != ''")
+        rows = cur.fetchall()
+        for row in rows:
+            new_steps = "\n".join(split_steps(row[1]))
+            if new_steps != row[1]:
+                cur.execute("UPDATE recipes SET steps = %s WHERE id = %s", (new_steps, row[0]))
+        conn.commit()
+        cur.close()
 
 def split_steps(text):
     if not text:
@@ -189,26 +192,24 @@ def split_steps(text):
     return result if result else [text.strip()]
 
 def get_categories():
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("SELECT name FROM categories ORDER BY id")
-    cats = [r[0] for r in cur.fetchall()]
-    cur.close()
-    conn.close()
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT name FROM categories ORDER BY id")
+        cats = [r[0] for r in cur.fetchall()]
+        cur.close()
     return cats
 
 def get_all_tags():
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("SELECT tags FROM recipes WHERE tags != ''")
-    tag_set = set()
-    for (tags_str,) in cur.fetchall():
-        for t in tags_str.split(","):
-            t = t.strip()
-            if t:
-                tag_set.add(t)
-    cur.close()
-    conn.close()
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT tags FROM recipes WHERE tags != ''")
+        tag_set = set()
+        for (tags_str,) in cur.fetchall():
+            for t in tags_str.split(","):
+                t = t.strip()
+                if t:
+                    tag_set.add(t)
+        cur.close()
     return sorted(tag_set)
 
 def parse_manual_recipe(text):
@@ -290,27 +291,26 @@ def index():
     keyword  = request.args.get("q", "")
     category = request.args.get("cat", "")
     tag      = request.args.get("tag", "")
-    conn = get_conn()
-    cur = conn.cursor()
-    conditions, params = [], []
-    if keyword:
-        conditions.append("(title ILIKE %s OR ingredients ILIKE %s OR tags ILIKE %s)")
-        params += [f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"]
-    if category:
-        conditions.append("category = %s")
-        params.append(category)
-    if tag:
-        conditions.append("tags ILIKE %s")
-        params.append(f"%{tag}%")
-    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-    cur.execute(f"""
-        SELECT {COLS},
-               (SELECT MAX(date) FROM cooking_records WHERE recipe_id = recipes.id) AS last_cooked
-        FROM recipes {where} ORDER BY created_at DESC
-    """, params)
-    recipes = cur.fetchall()
-    cur.close()
-    conn.close()
+    with get_conn() as conn:
+        cur = conn.cursor()
+        conditions, params = [], []
+        if keyword:
+            conditions.append("(title ILIKE %s OR ingredients ILIKE %s OR tags ILIKE %s)")
+            params += [f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"]
+        if category:
+            conditions.append("category = %s")
+            params.append(category)
+        if tag:
+            conditions.append("tags ILIKE %s")
+            params.append(f"%{tag}%")
+        where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        cur.execute(f"""
+            SELECT {COLS},
+                   (SELECT MAX(date) FROM cooking_records WHERE recipe_id = recipes.id) AS last_cooked
+            FROM recipes {where} ORDER BY created_at DESC
+        """, params)
+        recipes = cur.fetchall()
+        cur.close()
     return render_template("index.html", recipes=recipes, keyword=keyword,
                            category=category, tag=tag, categories=get_categories(),
                            all_tags=get_all_tags())
@@ -318,14 +318,13 @@ def index():
 @app.route("/recipe/<int:recipe_id>")
 @login_required
 def recipe_detail(recipe_id):
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute(f"SELECT {COLS} FROM recipes WHERE id = %s", (recipe_id,))
-    recipe = cur.fetchone()
-    cur.execute("SELECT MAX(date) FROM cooking_records WHERE recipe_id = %s", (recipe_id,))
-    last_cooked = cur.fetchone()[0]
-    cur.close()
-    conn.close()
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(f"SELECT {COLS} FROM recipes WHERE id = %s", (recipe_id,))
+        recipe = cur.fetchone()
+        cur.execute("SELECT MAX(date) FROM cooking_records WHERE recipe_id = %s", (recipe_id,))
+        last_cooked = cur.fetchone()[0]
+        cur.close()
     if not recipe:
         return "レシピが見つかりません", 404
     return render_template("recipe.html", recipe=recipe, categories=get_categories(), last_cooked=last_cooked)
@@ -420,23 +419,21 @@ def add():
     category       = request.form.get("category", "").strip()
     tags           = ", ".join([t.strip() for t in request.form.get("tags", "").split(",") if t.strip()])
     if url:
-        conn = get_conn()
-        cur  = conn.cursor()
-        cur.execute("SELECT id FROM recipes WHERE url = %s", (url,))
-        existing = cur.fetchone()
-        if existing:
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT id FROM recipes WHERE url = %s", (url,))
+            existing = cur.fetchone()
+            if existing:
+                cur.close()
+                return redirect(f"/?error=duplicate_url&existing_id={existing[0]}")
+            info  = fetch_recipe(url)
+            title = title_override if title_override else info["title"]
+            cur.execute(
+                "INSERT INTO recipes (title, url, ingredients, steps, image_url, memo, category, tags) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                (title, url, info["ingredients"], info["steps"], info["image_url"], memo, category, tags)
+            )
+            conn.commit()
             cur.close()
-            conn.close()
-            return redirect(f"/?error=duplicate_url&existing_id={existing[0]}")
-        info  = fetch_recipe(url)
-        title = title_override if title_override else info["title"]
-        cur.execute(
-            "INSERT INTO recipes (title, url, ingredients, steps, image_url, memo, category, tags) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
-            (title, url, info["ingredients"], info["steps"], info["image_url"], memo, category, tags)
-        )
-        conn.commit()
-        cur.close()
-        conn.close()
     return redirect("/")
 
 @app.route("/add-manual", methods=["POST"])
@@ -454,15 +451,14 @@ def add_manual():
     if full_text and (not ingredients and not steps):
         ingredients, steps = parse_manual_recipe(full_text)
     if title:
-        conn = get_conn()
-        cur = conn.cursor()
-        cur.execute(
-            "INSERT INTO recipes (title, url, ingredients, steps, image_url, memo, category, tags) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
-            (title, url, ingredients, steps, image_url, memo, category, tags)
-        )
-        conn.commit()
-        cur.close()
-        conn.close()
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO recipes (title, url, ingredients, steps, image_url, memo, category, tags) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                (title, url, ingredients, steps, image_url, memo, category, tags)
+            )
+            conn.commit()
+            cur.close()
     return redirect("/")
 
 @app.route("/recipe/<int:recipe_id>/update", methods=["GET", "POST"])
@@ -477,21 +473,20 @@ def update(recipe_id):
     steps       = request.form.get("steps", "").strip()
     url         = request.form.get("url", "").strip()
     new_image   = save_upload(request.files.get("photo"))
-    conn = get_conn()
-    cur = conn.cursor()
-    if new_image:
-        cur.execute(
-            "UPDATE recipes SET category=%s,tags=%s,memo=%s,ingredients=%s,steps=%s,url=%s,image_url=%s WHERE id=%s",
-            (category, tags, memo, ingredients, steps, url, new_image, recipe_id)
-        )
-    else:
-        cur.execute(
-            "UPDATE recipes SET category=%s,tags=%s,memo=%s,ingredients=%s,steps=%s,url=%s WHERE id=%s",
-            (category, tags, memo, ingredients, steps, url, recipe_id)
-        )
-    conn.commit()
-    cur.close()
-    conn.close()
+    with get_conn() as conn:
+        cur = conn.cursor()
+        if new_image:
+            cur.execute(
+                "UPDATE recipes SET category=%s,tags=%s,memo=%s,ingredients=%s,steps=%s,url=%s,image_url=%s WHERE id=%s",
+                (category, tags, memo, ingredients, steps, url, new_image, recipe_id)
+            )
+        else:
+            cur.execute(
+                "UPDATE recipes SET category=%s,tags=%s,memo=%s,ingredients=%s,steps=%s,url=%s WHERE id=%s",
+                (category, tags, memo, ingredients, steps, url, recipe_id)
+            )
+        conn.commit()
+        cur.close()
     return redirect(f"/recipe/{recipe_id}")
 
 @app.route("/recipe/<int:recipe_id>/update-lines", methods=["POST"])
@@ -501,27 +496,25 @@ def update_lines(recipe_id):
     value = request.form.get("value", "")
     if field not in ("ingredients", "steps", "title", "memo"):
         return jsonify({"error": "invalid field"}), 400
-    conn = get_conn()
-    cur  = conn.cursor()
-    cur.execute(f"UPDATE recipes SET {field} = %s WHERE id = %s", (value, recipe_id))
-    conn.commit()
-    cur.close()
-    conn.close()
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(f"UPDATE recipes SET {field} = %s WHERE id = %s", (value, recipe_id))
+        conn.commit()
+        cur.close()
     return jsonify({"ok": True})
 
 @app.route("/fix-steps/<int:recipe_id>", methods=["POST"])
 @login_required
 def fix_steps(recipe_id):
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("SELECT id, steps FROM recipes WHERE id = %s", (recipe_id,))
-    row = cur.fetchone()
-    if row and row[1]:
-        cur.execute("UPDATE recipes SET steps = %s WHERE id = %s",
-                    ("\n".join(split_steps(row[1])), recipe_id))
-        conn.commit()
-    cur.close()
-    conn.close()
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT id, steps FROM recipes WHERE id = %s", (recipe_id,))
+        row = cur.fetchone()
+        if row and row[1]:
+            cur.execute("UPDATE recipes SET steps = %s WHERE id = %s",
+                        ("\n".join(split_steps(row[1])), recipe_id))
+            conn.commit()
+        cur.close()
     return redirect(f"/recipe/{recipe_id}")
 
 @app.route("/categories/add", methods=["POST"])
@@ -529,12 +522,11 @@ def fix_steps(recipe_id):
 def category_add():
     name = request.form.get("name", "").strip()
     if name:
-        conn = get_conn()
-        cur = conn.cursor()
-        cur.execute("INSERT INTO categories (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (name,))
-        conn.commit()
-        cur.close()
-        conn.close()
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("INSERT INTO categories (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (name,))
+            conn.commit()
+            cur.close()
     return redirect("/")
 
 @app.route("/categories/delete", methods=["POST"])
@@ -542,12 +534,11 @@ def category_add():
 def category_delete():
     name = request.form.get("name", "").strip()
     if name:
-        conn = get_conn()
-        cur = conn.cursor()
-        cur.execute("DELETE FROM categories WHERE name = %s", (name,))
-        conn.commit()
-        cur.close()
-        conn.close()
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM categories WHERE name = %s", (name,))
+            conn.commit()
+            cur.close()
     return redirect("/")
 
 @app.route("/tags/delete", methods=["POST"])
@@ -555,18 +546,17 @@ def category_delete():
 def tag_delete():
     name = request.form.get("name", "").strip()
     if name:
-        conn = get_conn()
-        cur = conn.cursor()
-        cur.execute("SELECT id, tags FROM recipes WHERE tags != ''")
-        for recipe_id, tags_str in cur.fetchall():
-            tags = [t.strip() for t in tags_str.split(",") if t.strip()]
-            if name in tags:
-                tags.remove(name)
-                cur.execute("UPDATE recipes SET tags = %s WHERE id = %s",
-                            (", ".join(tags), recipe_id))
-        conn.commit()
-        cur.close()
-        conn.close()
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT id, tags FROM recipes WHERE tags != ''")
+            for recipe_id, tags_str in cur.fetchall():
+                tags = [t.strip() for t in tags_str.split(",") if t.strip()]
+                if name in tags:
+                    tags.remove(name)
+                    cur.execute("UPDATE recipes SET tags = %s WHERE id = %s",
+                                (", ".join(tags), recipe_id))
+            conn.commit()
+            cur.close()
     return redirect("/")
 
 @app.route("/bulk-update", methods=["POST"])
@@ -577,36 +567,34 @@ def bulk_update():
     bulk_tag = request.form.get("bulk_tag", "").strip()
     if not ids:
         return redirect("/")
-    conn = get_conn()
-    cur = conn.cursor()
-    if category:
-        cur.executemany(
-            "UPDATE recipes SET category = %s WHERE id = %s",
-            [(category, id_) for id_ in ids]
-        )
-    if bulk_tag:
-        for id_ in ids:
-            cur.execute("SELECT tags FROM recipes WHERE id = %s", (id_,))
-            row = cur.fetchone()
-            existing_tags = [t.strip() for t in (row[0] or "").split(",") if t.strip()]
-            if bulk_tag not in existing_tags:
-                existing_tags.append(bulk_tag)
-            cur.execute("UPDATE recipes SET tags = %s WHERE id = %s",
-                        (", ".join(existing_tags), id_))
-    conn.commit()
-    cur.close()
-    conn.close()
+    with get_conn() as conn:
+        cur = conn.cursor()
+        if category:
+            cur.executemany(
+                "UPDATE recipes SET category = %s WHERE id = %s",
+                [(category, id_) for id_ in ids]
+            )
+        if bulk_tag:
+            for id_ in ids:
+                cur.execute("SELECT tags FROM recipes WHERE id = %s", (id_,))
+                row = cur.fetchone()
+                existing_tags = [t.strip() for t in (row[0] or "").split(",") if t.strip()]
+                if bulk_tag not in existing_tags:
+                    existing_tags.append(bulk_tag)
+                cur.execute("UPDATE recipes SET tags = %s WHERE id = %s",
+                            (", ".join(existing_tags), id_))
+        conn.commit()
+        cur.close()
     return redirect("/")
 
 @app.route("/delete/<int:recipe_id>", methods=["POST"])
 @login_required
 def delete(recipe_id):
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM recipes WHERE id = %s", (recipe_id,))
-    conn.commit()
-    cur.close()
-    conn.close()
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM recipes WHERE id = %s", (recipe_id,))
+        conn.commit()
+        cur.close()
     return redirect("/")
 
 @app.route("/calendar")
@@ -618,37 +606,36 @@ def calendar_view():
     month         = int(request.args.get("month", today.month))
     selected_date = request.args.get("date", today.strftime("%Y-%m-%d"))
 
-    conn = get_conn()
-    cur  = conn.cursor()
+    with get_conn() as conn:
+        cur  = conn.cursor()
 
-    # その月の日付×食事タイプ（ドット表示用）
-    cur.execute("""
-        SELECT DISTINCT date, meal_type FROM cooking_records
-        WHERE EXTRACT(YEAR FROM date) = %s AND EXTRACT(MONTH FROM date) = %s
-    """, (year, month))
-    dates_with_records = {}
-    for row in cur.fetchall():
-        dk = row[0].strftime("%Y-%m-%d")
-        dates_with_records.setdefault(dk, set()).add(row[1])
-
-    # 選択日の記録
-    records_by_meal = {"朝食": [], "昼食": [], "夕食": []}
-    if selected_date:
+        # その月の日付×食事タイプ（ドット表示用）
         cur.execute("""
-            SELECT cr.id, cr.meal_type, cr.custom_name, cr.memo, r.id, r.title
-            FROM cooking_records cr
-            LEFT JOIN recipes r ON cr.recipe_id = r.id
-            WHERE cr.date = %s
-            ORDER BY CASE cr.meal_type WHEN '朝食' THEN 1 WHEN '昼食' THEN 2 ELSE 3 END, cr.id
-        """, (selected_date,))
-        for rec in cur.fetchall():
-            meal = rec[1] if rec[1] in records_by_meal else "夕食"
-            records_by_meal[meal].append(rec)
+            SELECT DISTINCT date, meal_type FROM cooking_records
+            WHERE EXTRACT(YEAR FROM date) = %s AND EXTRACT(MONTH FROM date) = %s
+        """, (year, month))
+        dates_with_records = {}
+        for row in cur.fetchall():
+            dk = row[0].strftime("%Y-%m-%d")
+            dates_with_records.setdefault(dk, set()).add(row[1])
 
-    cur.execute("SELECT id, title, category FROM recipes ORDER BY title")
-    recipes = cur.fetchall()
-    cur.close()
-    conn.close()
+        # 選択日の記録
+        records_by_meal = {"朝食": [], "昼食": [], "夕食": []}
+        if selected_date:
+            cur.execute("""
+                SELECT cr.id, cr.meal_type, cr.custom_name, cr.memo, r.id, r.title
+                FROM cooking_records cr
+                LEFT JOIN recipes r ON cr.recipe_id = r.id
+                WHERE cr.date = %s
+                ORDER BY CASE cr.meal_type WHEN '朝食' THEN 1 WHEN '昼食' THEN 2 ELSE 3 END, cr.id
+            """, (selected_date,))
+            for rec in cur.fetchall():
+                meal = rec[1] if rec[1] in records_by_meal else "夕食"
+                records_by_meal[meal].append(rec)
+
+        cur.execute("SELECT id, title, category FROM recipes ORDER BY title")
+        recipes = cur.fetchall()
+        cur.close()
 
     prev_year,  prev_month  = (year - 1, 12) if month == 1  else (year, month - 1)
     next_year,  next_month  = (year + 1,  1) if month == 12 else (year, month + 1)
@@ -684,15 +671,14 @@ def calendar_add():
     year        = request.form.get("year", "")
     month       = request.form.get("month", "")
     if date_str and (recipe_id or custom_name):
-        conn = get_conn()
-        cur  = conn.cursor()
-        cur.execute(
-            "INSERT INTO cooking_records (date, recipe_id, custom_name, meal_type, memo) VALUES (%s, %s, %s, %s, %s)",
-            (date_str, recipe_id, custom_name, meal_type, memo)
-        )
-        conn.commit()
-        cur.close()
-        conn.close()
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO cooking_records (date, recipe_id, custom_name, meal_type, memo) VALUES (%s, %s, %s, %s, %s)",
+                (date_str, recipe_id, custom_name, meal_type, memo)
+            )
+            conn.commit()
+            cur.close()
     return redirect(f"/calendar?year={year}&month={month}&date={date_str}#detail")
 
 @app.route("/recipe/<int:recipe_id>/add-to-today", methods=["POST"])
@@ -701,15 +687,14 @@ def add_to_today(recipe_id):
     from datetime import date as date_cls
     meal_type = request.json.get("meal_type", "夕食")
     date_str  = request.json.get("date") or date_cls.today().isoformat()
-    conn = get_conn()
-    cur  = conn.cursor()
-    cur.execute(
-        "INSERT INTO cooking_records (date, recipe_id, meal_type) VALUES (%s, %s, %s)",
-        (date_str, recipe_id, meal_type)
-    )
-    conn.commit()
-    cur.close()
-    conn.close()
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO cooking_records (date, recipe_id, meal_type) VALUES (%s, %s, %s)",
+            (date_str, recipe_id, meal_type)
+        )
+        conn.commit()
+        cur.close()
     return {"ok": True, "date": date_str}
 
 @app.route("/calendar/delete/<int:record_id>", methods=["POST"])
@@ -718,12 +703,11 @@ def calendar_delete(record_id):
     year      = request.form.get("year", "")
     month     = request.form.get("month", "")
     date_str  = request.form.get("date", "")
-    conn = get_conn()
-    cur  = conn.cursor()
-    cur.execute("DELETE FROM cooking_records WHERE id = %s", (record_id,))
-    conn.commit()
-    cur.close()
-    conn.close()
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM cooking_records WHERE id = %s", (record_id,))
+        conn.commit()
+        cur.close()
     return redirect(f"/calendar?year={year}&month={month}&date={date_str}#detail")
 
 # gunicornでもローカルでもDB初期化を実行
