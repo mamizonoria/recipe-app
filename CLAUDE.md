@@ -46,7 +46,7 @@ recipes (
 - URL: https://recipe-app.zono-design.com
 - サーバー: Xserver VPS（IP: 210.131.216.191）
 - ユーザー: ubuntu
-- SSHキー: `~/.ssh/xserver-vps2.pem`
+- SSHキー: `~/.ssh/xserver-vps2_fixed.pem`
 - アプリディレクトリ: `/home/ubuntu/recipe-app`
 - 構成: Gunicorn（ポート8000） + Nginx（ポート80/443） + systemd
 - GitHubリポジトリ: https://github.com/mamizonoria/recipe-app（公開）
@@ -57,12 +57,8 @@ recipes (
 
 ### コード更新手順
 ```bash
-# ローカルで変更をプッシュ
+# git push するだけで最大1分以内にVPSへ自動デプロイされる（cronジョブ設定済み）
 git push
-
-# VPSで反映
-ssh -i ~/.ssh/xserver-vps2.pem ubuntu@210.131.216.191
-cd ~/recipe-app && git pull && sudo systemctl restart recipe-app
 ```
 
 ## コマンド
