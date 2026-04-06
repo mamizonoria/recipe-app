@@ -1,0 +1,46 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python *)",
+      "Bash(uvicorn *)",
+      "Bash(alembic *)",
+      "Bash(pip *)",
+      "Bash(pytest *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git commit *)",
+      "Bash(git push)",
+      "Bash(git push *)",
+      "Bash(curl *)",
+      "Bash(scp -i ~/.ssh/xserver-vps2.pem *)",
+      "Bash(ssh -i ~/.ssh/xserver-vps2.pem ubuntu@210.131.216.191 *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(grep *)",
+      "Bash(psql *)"
+    ],
+    "deny": [
+      "Read(~/.ssh/**)",
+      "Read(~/.gnupg/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.azure/**)",
+      "Read(~/.kube/**)",
+      "Read(~/.npmrc)",
+      "Read(~/.git-credentials)",
+      "Read(~/.config/gh/**)",
+      "Edit(~/.bashrc)",
+      "Edit(~/.zshrc)",
+      "Bash(wget *)",
+      "Bash(nc *)",
+      "Read(*.env)",
+      "Read(.env.*)"
+    ]
+  },
+  "enableAllProjectMcpServers": false,
+  "sandbox": {
+    "filesystem": {
+      "denyRead": ["./.env", "./.env.*"]
+    }
+  }
+}

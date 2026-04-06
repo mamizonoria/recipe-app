@@ -46,7 +46,7 @@ recipes (
 - URL: https://recipe-app.zono-design.com
 - サーバー: Xserver VPS（IP: 210.131.216.191）
 - ユーザー: ubuntu
-- SSHキー: `~/.ssh/xserver-vps2_fixed.pem`
+- SSHキー: `~/.ssh/xserver-vps2.pem`（`xserver-vps2_fixed.pem` は存在しない）
 - アプリディレクトリ: `/home/ubuntu/recipe-app`
 - 構成: Gunicorn（ポート8000） + Nginx（ポート80/443） + systemd
 - GitHubリポジトリ: https://github.com/mamizonoria/recipe-app（公開）
@@ -58,6 +58,29 @@ recipes (
 ### コード更新手順
 ```bash
 # git push するだけで最大1分以内にVPSへ自動デプロイされる（cronジョブ設定済み）
+git push
+```
+
+### VPS の cron 設定（ubuntu ユーザー）
+```
+# 自動デプロイ（1分ごと）
+* * * * * cd /home/ubuntu/recipe-app && git fetch -q && git diff --quiet HEAD origin/main || (git pull -q && ./venv/bin/pip install -r requirements.txt -q && sudo systemctl restart recipe-app >> /var/log/recipe-app/deploy.log 2>&1)
+
+# DB キープアライブ（4分ごと）
+*/4 * * * * curl -s https://recipe-app.zono-design.com/ > /dev/null
+```
+
+### Neon.tech の DB スリープについて
+- 無料プランのため「Scale to zero（5分で自動スリープ）」が固定で有効
+- 久々にサイトを開くと DB 起動待ちで表示が遅くなる
+- 上記キープアライブ cron（4分ごと）で対処済み
+- キープアライブを止めると再び遅くなるので削除しないこと
+
+## 作業終了時のルール
+作業が一段落したら、必ず以下を実行すること：
+```bash
+git add -A
+git commit -m "作業内容のメモ"
 git push
 ```
 
