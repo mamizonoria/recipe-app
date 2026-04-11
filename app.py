@@ -756,6 +756,14 @@ def calendar_delete(record_id):
         cur.close()
     return redirect(f"/calendar?year={year}&month={month}&date={date_str}#detail")
 
+@app.route("/ping")
+def ping():
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT 1")
+        cur.close()
+    return "ok"
+
 # gunicornでもローカルでもDB初期化を実行
 with app.app_context():
     init_db()
