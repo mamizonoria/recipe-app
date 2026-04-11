@@ -181,6 +181,11 @@ def init_db():
                 "INSERT INTO categories (name) VALUES (%s) ON CONFLICT (name) DO NOTHING",
                 (name,)
             )
+        # インデックス（なければ作成）
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_recipes_created_at ON recipes(created_at DESC)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_recipes_category ON recipes(category)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_cooking_records_recipe_id ON cooking_records(recipe_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_cooking_records_date ON cooking_records(date)")
         conn.commit()
         cur.close()
 
@@ -320,25 +325,41 @@ def index():
         cur = conn.cursor()
         conditions, params = [], []
         if keyword:
-            conditions.append("(title ILIKE %s OR ingredients ILIKE %s OR tags ILIKE %s)")
+            conditions.append("(r.title ILIKE %s OR r.ingredients ILIKE %s OR r.tags ILIKE %s)")
             params += [f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"]
         if category:
-            conditions.append("category = %s")
+            conditions.append("r.category = %s")
             params.append(category)
         if tag:
-            conditions.append("tags ILIKE %s")
+            conditions.append("r.tags ILIKE %s")
             params.append(f"%{tag}%")
         where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
         cur.execute(f"""
-            SELECT {COLS},
-                   (SELECT MAX(date) FROM cooking_records WHERE recipe_id = recipes.id) AS last_cooked
-            FROM recipes {where} ORDER BY created_at DESC
+            SELECT r.id, r.title, r.url, r.ingredients, r.steps,
+                   r.image_url, r.memo, r.created_at, r.category, r.tags,
+                   MAX(cr.date) AS last_cooked
+            FROM recipes r
+            LEFT JOIN cooking_records cr ON cr.recipe_id = r.id
+            {where}
+            GROUP BY r.id, r.title, r.url, r.ingredients, r.steps,
+                     r.image_url, r.memo, r.created_at, r.category, r.tags
+            ORDER BY r.created_at DESC
         """, params)
         recipes = cur.fetchall()
+        cur.execute("SELECT name FROM categories ORDER BY id")
+        categories = [r[0] for r in cur.fetchall()]
+        cur.execute("SELECT tags FROM recipes WHERE tags != ''")
+        tag_set = set()
+        for (tags_str,) in cur.fetchall():
+            for t in tags_str.split(","):
+                t = t.strip()
+                if t:
+                    tag_set.add(t)
+        all_tags = sorted(tag_set)
         cur.close()
     return render_template("index.html", recipes=recipes, keyword=keyword,
-                           category=category, tag=tag, categories=get_categories(),
-                           all_tags=get_all_tags())
+                           category=category, tag=tag, categories=categories,
+                           all_tags=all_tags)
 
 @app.route("/recipe/<int:recipe_id>")
 @login_required
