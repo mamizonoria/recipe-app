@@ -84,6 +84,11 @@ git push
 - 上記キープアライブ cron（4分ごと）で対処済み
 - キープアライブを止めると再び遅くなるので削除しないこと
 
+### urllib3 に関する注意（2026-04-11）
+- `requirements.txt` に `urllib3<2` の制約を入れると urllib3 1.x がインストールされ、Python 3.12環境でCookpadなど一部サイトのスクレイピングが失敗する
+- urllib3 は 2.x（制約なし）のままにすること
+- VPS上のurllib3バージョンは `./venv/bin/pip show urllib3` で確認できる
+
 ### パフォーマンス改善済み（2026-04-11）
 - トップページのDB接続を3回→1回に削減（categories・tags取得を統合）
 - last_cooked の相関サブクエリを LEFT JOIN に変更
