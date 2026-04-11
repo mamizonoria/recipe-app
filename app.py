@@ -20,6 +20,15 @@ load_dotenv()
 
 app = Flask(__name__)
 app.jinja_env.filters["enumerate"] = enumerate
+
+def cloudinary_thumb(url, width=520, height=320):
+    """CloudinaryのURLをサムネイルサイズに変換する"""
+    if not url or "cloudinary.com" not in url:
+        return url
+    transform = f"c_fill,h_{height},w_{width},f_auto,q_auto"
+    return url.replace("/upload/", f"/upload/{transform}/", 1)
+
+app.jinja_env.filters["cloudinary_thumb"] = cloudinary_thumb
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key")
 app.config["SESSION_COOKIE_SECURE"] = True
 app.config["SESSION_COOKIE_HTTPONLY"] = True
