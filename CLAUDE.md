@@ -57,13 +57,19 @@ recipes (
 
 ### コード更新手順
 ```bash
-# git push するだけで最大1分以内にVPSへ自動デプロイされる（cronジョブ設定済み）
+# git push するだけで数十秒以内にVPSへ自動デプロイされる（GitHub Actions設定済み）
 git push
 ```
 
+### デプロイの仕組み
+- **GitHub Actions**（`.github/workflows/deploy.yml`）が main へのプッシュをトリガーに SSH でVPSに接続し即時デプロイ
+  - `git pull` → `pip install` → `systemctl restart recipe-app` を実行
+  - GitHub Secrets に `VPS_SSH_KEY`（`~/.ssh/xserver-vps2.pem` の中身）を設定済み
+- **VPS cron**（バックアップ）: 1分ごとにgit pullを確認（GitHub Actionsが主、cronは保険）
+
 ### VPS の cron 設定（ubuntu ユーザー）
 ```
-# 自動デプロイ（1分ごと）
+# 自動デプロイ（1分ごと・バックアップ）
 * * * * * cd /home/ubuntu/recipe-app && git fetch -q && git diff --quiet HEAD origin/main || (git pull -q && ./venv/bin/pip install -r requirements.txt -q && sudo systemctl restart recipe-app >> /var/log/recipe-app/deploy.log 2>&1)
 
 # DB キープアライブ（4分ごと）
@@ -75,6 +81,11 @@ git push
 - 久々にサイトを開くと DB 起動待ちで表示が遅くなる
 - 上記キープアライブ cron（4分ごと）で対処済み
 - キープアライブを止めると再び遅くなるので削除しないこと
+
+### パフォーマンス改善済み（2026-04-11）
+- トップページのDB接続を3回→1回に削減（categories・tags取得を統合）
+- last_cooked の相関サブクエリを LEFT JOIN に変更
+- DBインデックスを追加（created_at, category, recipe_id, date）→ `init_db()` で自動作成
 
 ## 作業終了時のルール
 作業が一段落したら、必ず以下を実行すること：
