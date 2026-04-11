@@ -1,6 +1,5 @@
 flask==2.2.5
 requests==2.31.0
-urllib3>=1.26,<2
 beautifulsoup4==4.14.3
 psycopg2-binary==2.9.9
 cloudinary==1.44.1
