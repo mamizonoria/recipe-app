@@ -88,6 +88,9 @@ git push
 - トップページのDB接続を3回→1回に削減（categories・tags取得を統合）
 - last_cooked の相関サブクエリを LEFT JOIN に変更
 - DBインデックスを追加（created_at, category, recipe_id, date）→ `init_db()` で自動作成
+- `/ping` エンドポイントを追加（ログイン不要・DBに `SELECT 1` するだけ）
+  - キープアライブcronが `/` を叩いてもログインリダイレクトでDBに届かない問題を修正
+  - VPS cronを `/ping` に変更済み
 
 ## 作業終了時のルール
 作業が一段落したら、必ず以下を実行すること：
