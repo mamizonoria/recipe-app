@@ -35,6 +35,8 @@ recipes (
 - DBスキーマを変更する場合は既存データを壊さない方針で
 - Cloudinaryへのアップロード処理（`save_upload()`）は慎重に扱う
 - 副作用の強い操作は実行前に必ず確認を取る
+- VPS操作（SSH・cron設定など）はユーザーに手順を伝えるのではなく、Claudeが直接SSHして実行する
+  - SSHキー: `~/.ssh/xserver-vps2.pem`、ユーザー: `ubuntu`、IP: `210.131.216.191`
 
 ## 環境変数（必須）
 - `DATABASE_URL`: Neon.tech接続文字列
