@@ -334,12 +334,16 @@ def index():
         cur = conn.cursor()
         HIDDEN_CAT = "作らなくていい"
         conditions, params = [], []
+        order_extra, order_params = "", []
         if keyword:
             conditions.append("(r.title ILIKE %s OR r.ingredients ILIKE %s OR r.tags ILIKE %s)")
             params += [f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"]
         if category:
             conditions.append("(',' || r.category || ',') LIKE ('%%,' || %s || ',%%')")
             params.append(category)
+            if category != HIDDEN_CAT:
+                order_extra = "CASE WHEN (',' || r.category || ',') LIKE ('%%,' || %s || ',%%') THEN 1 ELSE 0 END,"
+                order_params.append(HIDDEN_CAT)
         else:
             conditions.append("NOT (',' || r.category || ',') LIKE ('%%,' || %s || ',%%')")
             params.append(HIDDEN_CAT)
@@ -356,8 +360,8 @@ def index():
             {where}
             GROUP BY r.id, r.title, r.url, r.ingredients, r.steps,
                      r.image_url, r.memo, r.created_at, r.category, r.tags
-            ORDER BY r.created_at DESC
-        """, params)
+            ORDER BY {order_extra} r.created_at DESC
+        """, params + order_params)
         recipes = cur.fetchall()
         cur.execute("SELECT name FROM categories ORDER BY id")
         categories = [r[0] for r in cur.fetchall()]
