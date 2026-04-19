@@ -185,7 +185,7 @@ def init_db():
             if not cur.fetchone():
                 cur.execute(f"ALTER TABLE cooking_records ADD COLUMN {col} {defn}")
         cur.execute("ALTER TABLE cooking_records ALTER COLUMN recipe_id DROP NOT NULL")
-        for name in ["主食", "副食"]:
+        for name in ["主食", "副食", "作らなくていい"]:
             cur.execute(
                 "INSERT INTO categories (name) VALUES (%s) ON CONFLICT (name) DO NOTHING",
                 (name,)
@@ -332,6 +332,7 @@ def index():
     tag      = request.args.get("tag", "")
     with get_conn() as conn:
         cur = conn.cursor()
+        HIDDEN_CAT = "作らなくていい"
         conditions, params = [], []
         if keyword:
             conditions.append("(r.title ILIKE %s OR r.ingredients ILIKE %s OR r.tags ILIKE %s)")
@@ -339,6 +340,9 @@ def index():
         if category:
             conditions.append("r.category = %s")
             params.append(category)
+        elif not category:
+            conditions.append("r.category != %s")
+            params.append(HIDDEN_CAT)
         if tag:
             conditions.append("r.tags ILIKE %s")
             params.append(f"%{tag}%")
