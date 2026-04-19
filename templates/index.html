@@ -409,7 +409,9 @@
                 {% if r[10] %}<div class="meta">最近作った日：{{ r[10].strftime('%Y年%-m月%-d日') }}</div>{% endif %}
                 <div class="badges">
                     {% if r[8] %}
-                    <a href="/?cat={{ r[8] }}" class="badge-cat">{{ r[8] }}</a>
+                    {% for cat in r[8].split(',') %}{% if cat.strip() %}
+                    <a href="/?cat={{ cat.strip() }}" class="badge-cat">{{ cat.strip() }}</a>
+                    {% endif %}{% endfor %}
                     {% endif %}
                     {% if r[9] %}
                         {% for t in r[9].split(',') %}

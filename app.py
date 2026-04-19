@@ -338,10 +338,10 @@ def index():
             conditions.append("(r.title ILIKE %s OR r.ingredients ILIKE %s OR r.tags ILIKE %s)")
             params += [f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"]
         if category:
-            conditions.append("r.category = %s")
+            conditions.append("(',' || r.category || ',') LIKE ('%%,' || %s || ',%%')")
             params.append(category)
-        elif not category:
-            conditions.append("r.category != %s")
+        else:
+            conditions.append("NOT (',' || r.category || ',') LIKE ('%%,' || %s || ',%%')")
             params.append(HIDDEN_CAT)
         if tag:
             conditions.append("r.tags ILIKE %s")
@@ -525,7 +525,8 @@ def add_manual():
 def update(recipe_id):
     if request.method == "GET":
         return redirect(f"/recipe/{recipe_id}")
-    category    = request.form.get("category", "").strip()
+    cats        = [c.strip() for c in request.form.getlist("category") if c.strip()]
+    category    = ",".join(cats)
     tags        = ", ".join([t.strip() for t in request.form.get("tags", "").split(",") if t.strip()])
     memo        = request.form.get("memo", "").strip()
     ingredients = request.form.get("ingredients", "").strip()

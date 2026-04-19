@@ -56,6 +56,10 @@
         .photo-preview { width: 100%; max-height: 200px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; }
         .save-btn { background: #e67e22; color: white; border: none; padding: 9px 22px; border-radius: 6px; cursor: pointer; font-size: 14px; }
         .save-btn:hover { background: #cf6d17; }
+        .category-checks { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+        .check-label { display: flex; align-items: center; gap: 5px; font-size: 14px; color: #555; cursor: pointer; padding: 6px 12px; border: 1px solid #ddd; border-radius: 6px; background: white; user-select: none; }
+        .check-label input[type=checkbox] { width: auto; margin: 0; accent-color: #e67e22; }
+        .check-label:has(input:checked) { background: #fff3e0; border-color: #e67e22; color: #e65100; font-weight: bold; }
 
         .delete-form { margin-top: 30px; text-align: right; }
         .delete-btn { background: none; border: 1px solid #e74c3c; color: #e74c3c; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; }
@@ -121,7 +125,9 @@
 
     <div class="badges">
         {% if recipe[8] %}
-        <a href="/?cat={{ recipe[8] }}" class="badge-cat">{{ recipe[8] }}</a>
+        {% for cat in recipe[8].split(',') %}{% if cat.strip() %}
+        <a href="/?cat={{ cat.strip() }}" class="badge-cat">{{ cat.strip() }}</a>
+        {% endif %}{% endfor %}
         {% endif %}
         {% if recipe[9] %}
             {% for t in recipe[9].split(',') %}
@@ -241,24 +247,20 @@
                 <input type="url" name="url" value="{{ recipe[2] or '' }}" placeholder="https://...">
 
                 <!-- カテゴリー・タグ -->
-                <div class="two-col">
-                    <div>
-                        <label>カテゴリー</label>
-                        <input type="text" name="category"
-                               value="{{ recipe[8] or '' }}"
-                               placeholder="カテゴリーを入力"
-                               list="category-list">
-                        <datalist id="category-list">
-                            {% for cat in categories %}<option value="{{ cat }}">{% endfor %}
-                        </datalist>
-                    </div>
-                    <div>
-                        <label>タグ（カンマ区切りで複数可）</label>
-                        <input type="text" name="tags"
-                               value="{{ recipe[9] or '' }}"
-                               placeholder="時短, 節約, 子供向け">
-                    </div>
+                <label>カテゴリー（複数選択可）</label>
+                {% set current_cats = (recipe[8] or '').split(',') | map('trim') | list %}
+                <div class="category-checks">
+                    {% for cat in categories %}
+                    <label class="check-label">
+                        <input type="checkbox" name="category" value="{{ cat }}" {% if cat in current_cats %}checked{% endif %}>
+                        {{ cat }}
+                    </label>
+                    {% endfor %}
                 </div>
+                <label>タグ（カンマ区切りで複数可）</label>
+                <input type="text" name="tags"
+                       value="{{ recipe[9] or '' }}"
+                       placeholder="時短, 節約, 子供向け">
 
                 <!-- メモ -->
                 <label>メモ</label>
