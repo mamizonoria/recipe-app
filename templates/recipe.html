@@ -152,6 +152,21 @@
         <div class="add-today-toast" id="add-today-toast"></div>
     </div>
 
+    <!-- メモ -->
+    <div class="section">
+        <h2>📝 メモ <span class="edit-hint">タップして編集</span></h2>
+        <div id="memo-display"
+             class="memo-display {% if not recipe[6] %}empty{% endif %}"
+             onclick="startMemoEdit()">{{ recipe[6] or 'メモを追加（タップして編集）' }}</div>
+        <div id="memo-edit" style="display:none;">
+            <textarea class="memo-textarea" id="memo-textarea">{{ recipe[6] or '' }}</textarea>
+            <div class="memo-actions">
+                <button class="memo-cancel-btn" onclick="cancelMemoEdit()">キャンセル</button>
+                <button class="memo-save-btn"   onclick="saveMemo()">保存</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 材料 -->
     <div class="section">
         <h2>🥕 材料 <span class="edit-hint">タップして編集</span></h2>
@@ -198,21 +213,6 @@
         <p class="empty-note" id="steps-empty">手順が登録されていません</p>
         {% endif %}
         <button class="add-line-btn" onclick="addLine('steps')">＋ 手順を追加</button>
-    </div>
-
-    <!-- メモ -->
-    <div class="section">
-        <h2>📝 メモ <span class="edit-hint">タップして編集</span></h2>
-        <div id="memo-display"
-             class="memo-display {% if not recipe[6] %}empty{% endif %}"
-             onclick="startMemoEdit()">{{ recipe[6] or 'メモを追加（タップして編集）' }}</div>
-        <div id="memo-edit" style="display:none;">
-            <textarea class="memo-textarea" id="memo-textarea">{{ recipe[6] or '' }}</textarea>
-            <div class="memo-actions">
-                <button class="memo-cancel-btn" onclick="cancelMemoEdit()">キャンセル</button>
-                <button class="memo-save-btn"   onclick="saveMemo()">保存</button>
-            </div>
-        </div>
     </div>
 
     <!-- 編集セクション -->
