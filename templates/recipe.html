@@ -83,11 +83,10 @@
         input, textarea, select { font-size: 16px; }
 
         /* メモ欄 */
-        .memo-section { margin-bottom: 20px; }
-        .memo-display { white-space: pre-wrap; background: #fffde7; border: 1px dashed #ffe082; border-radius: 8px; padding: 14px 16px; font-size: 15px; line-height: 1.7; color: #555; cursor: pointer; min-height: 48px; }
-        .memo-display:hover { border-color: #e67e22; }
+        .memo-display { white-space: pre-wrap; font-size: 15px; line-height: 1.7; color: #555; cursor: pointer; min-height: 40px; border-radius: 4px; padding: 4px 2px; }
+        .memo-display:hover { background: #fff8f0; }
         .memo-display.empty { color: #ccc; font-style: italic; }
-        .memo-textarea { width: 100%; padding: 12px 14px; border: 2px solid #e67e22; border-radius: 8px; font-size: 15px; line-height: 1.7; resize: vertical; min-height: 100px; outline: none; font-family: inherit; }
+        .memo-textarea { width: 100%; padding: 12px 14px; border: 2px solid #e67e22; border-radius: 8px; font-size: 15px; line-height: 1.7; resize: vertical; min-height: 100px; outline: none; font-family: inherit; box-sizing: border-box; }
         .memo-actions { display: flex; gap: 8px; margin-top: 8px; justify-content: flex-end; }
         .memo-save-btn   { background: #e67e22; color: white; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; }
         .memo-cancel-btn { background: #f0f0f0; color: #555; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; }
@@ -153,20 +152,6 @@
         <div class="add-today-toast" id="add-today-toast"></div>
     </div>
 
-    <!-- メモ -->
-    <div class="memo-section">
-        <div id="memo-display"
-             class="memo-display {% if not recipe[6] %}empty{% endif %}"
-             onclick="startMemoEdit()">{{ recipe[6] or 'メモを追加（タップして編集）' }}</div>
-        <div id="memo-edit" style="display:none;">
-            <textarea class="memo-textarea" id="memo-textarea">{{ recipe[6] or '' }}</textarea>
-            <div class="memo-actions">
-                <button class="memo-cancel-btn" onclick="cancelMemoEdit()">キャンセル</button>
-                <button class="memo-save-btn"   onclick="saveMemo()">保存</button>
-            </div>
-        </div>
-    </div>
-
     <!-- 材料 -->
     <div class="section">
         <h2>🥕 材料 <span class="edit-hint">タップして編集</span></h2>
@@ -216,12 +201,19 @@
     </div>
 
     <!-- メモ -->
-    {% if recipe[6] %}
     <div class="section">
-        <h2>📝 メモ</h2>
-        <div class="memo-box">{{ recipe[6] }}</div>
+        <h2>📝 メモ <span class="edit-hint">タップして編集</span></h2>
+        <div id="memo-display"
+             class="memo-display {% if not recipe[6] %}empty{% endif %}"
+             onclick="startMemoEdit()">{{ recipe[6] or 'メモを追加（タップして編集）' }}</div>
+        <div id="memo-edit" style="display:none;">
+            <textarea class="memo-textarea" id="memo-textarea">{{ recipe[6] or '' }}</textarea>
+            <div class="memo-actions">
+                <button class="memo-cancel-btn" onclick="cancelMemoEdit()">キャンセル</button>
+                <button class="memo-save-btn"   onclick="saveMemo()">保存</button>
+            </div>
+        </div>
     </div>
-    {% endif %}
 
     <!-- 編集セクション -->
     <div class="edit-section">
